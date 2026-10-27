@@ -1,0 +1,13 @@
+{
+  "schema": 2,
+  "name": "DuckStation portable game",
+  "adapter": "adapters/duckstation-windows.json",
+  "runtime": "duckstation",
+  "channel": "stable",
+  "saves": [
+    "data/memcards",
+    "data/savestates",
+    "data/gamesettings",
+    "data/inputprofiles"
+  ]
+}
