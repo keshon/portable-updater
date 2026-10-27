@@ -1,0 +1,33 @@
+{
+  "$schema": "../schemas/adapter.schema.json",
+  "schema": 1,
+  "id": "cemu-windows-x64",
+  "platform": "windows",
+  "architecture": "amd64",
+  "executable": "Cemu.exe",
+  "version": {
+    "kind": "artifact-sha256"
+  },
+  "source": {
+    "provider": "github",
+    "repository": "cemu-project/Cemu",
+    "asset_pattern": "^cemu-.*-windows-x64\\.zip$",
+    "checksum": "when-published"
+  },
+  "preserve": [
+    "settings.xml",
+    "controllerProfiles",
+    "gameProfiles",
+    "graphicPacks",
+    "sharedFonts",
+    "shaderCache",
+    "memorySearcher"
+  ],
+  "required_package": [
+    "Cemu.exe",
+    "resources"
+  ],
+  "required_state": [
+    "settings.xml"
+  ]
+}

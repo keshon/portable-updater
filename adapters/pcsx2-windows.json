@@ -1,0 +1,17 @@
+{
+  "$schema": "../schemas/adapter.schema.json",
+  "schema": 1,
+  "id": "pcsx2-windows-x64",
+  "platform": "windows",
+  "architecture": "amd64",
+  "executable": "pcsx2-qt.exe",
+  "version": {"kind": "windows-file-version"},
+  "source": {
+    "provider": "github",
+    "repository": "PCSX2/pcsx2",
+    "asset_pattern": "^pcsx2-.*-windows-x64-Qt\\.7z$"
+  },
+  "preserve": ["inis", "gamesettings", "portable.ini", "covers"],
+  "required_package": ["pcsx2-qt.exe", "Qt6Core.dll", "Qt6Gui.dll", "Qt6Widgets.dll", "resources", "QtPlugins"],
+  "required_state": ["portable.ini", "inis/PCSX2.ini"]
+}

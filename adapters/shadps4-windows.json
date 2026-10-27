@@ -1,0 +1,21 @@
+{
+  "$schema": "../schemas/adapter.schema.json",
+  "schema": 1,
+  "id": "shadps4-windows-x64",
+  "platform": "windows",
+  "architecture": "amd64",
+  "executable": "shadPS4.exe",
+  "version": {
+    "kind": "artifact-sha256"
+  },
+  "source": {
+    "provider": "github",
+    "repository": "shadps4-emu/shadPS4",
+    "asset_pattern": "^shadps4-win64-sdl-.*\\.zip$"
+  },
+  "preserve": [],
+  "required_package": [
+    "shadPS4.exe"
+  ],
+  "required_state": []
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "../schemas/adapter.schema.json",
+  "schema": 1,
+  "id": "xenia-windows-x64",
+  "platform": "windows",
+  "architecture": "amd64",
+  "executable": "xenia.exe",
+  "version": {
+    "kind": "artifact-sha256"
+  },
+  "source": {
+    "provider": "github",
+    "repository": "xenia-project/release-builds-windows",
+    "asset_pattern": "^xenia_master\\.zip$"
+  },
+  "preserve": [
+    "portable.txt",
+    "xenia.config.toml"
+  ],
+  "required_package": [
+    "xenia.exe"
+  ],
+  "required_state": [
+    "portable.txt",
+    "xenia.config.toml"
+  ]
+}

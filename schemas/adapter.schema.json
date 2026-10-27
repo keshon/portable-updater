@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Portable updater emulator adapter",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "platform",
+    "architecture",
+    "executable",
+    "version",
+    "source",
+    "preserve",
+    "required_package",
+    "required_state"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "platform": {
+      "const": "windows"
+    },
+    "architecture": {
+      "const": "amd64"
+    },
+    "executable": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "windows-file-version",
+            "artifact-sha256"
+          ]
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider"
+      ],
+      "properties": {
+        "provider": {
+          "enum": [
+            "github",
+            "forgejo",
+            "rpcs3",
+            "dolphin"
+          ]
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "asset_pattern": {
+          "type": "string",
+          "minLength": 1
+        },
+        "host": {
+          "enum": [
+            "https://codeberg.org"
+          ]
+        },
+        "checksum": {
+          "enum": [
+            "required",
+            "when-published"
+          ]
+        }
+      }
+    },
+    "preserve": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required_package": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required_state": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

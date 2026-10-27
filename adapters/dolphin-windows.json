@@ -1,0 +1,29 @@
+{
+  "$schema": "../schemas/adapter.schema.json",
+  "schema": 1,
+  "id": "dolphin-windows-x64",
+  "platform": "windows",
+  "architecture": "amd64",
+  "executable": "Dolphin.exe",
+  "version": {
+    "kind": "artifact-sha256"
+  },
+  "source": {
+    "provider": "dolphin",
+    "checksum": "when-published"
+  },
+  "preserve": [
+    "portable.txt",
+    "ReShade.ini",
+    "ReShadeMGS4_1.ini",
+    "reshade-shaders",
+    "reshade-vulkan"
+  ],
+  "required_package": [
+    "Dolphin.exe",
+    "Sys"
+  ],
+  "required_state": [
+    "portable.txt"
+  ]
+}

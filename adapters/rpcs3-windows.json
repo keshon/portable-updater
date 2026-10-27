@@ -1,0 +1,37 @@
+{
+  "$schema": "../schemas/adapter.schema.json",
+  "schema": 1,
+  "id": "rpcs3-windows-x64",
+  "platform": "windows",
+  "architecture": "amd64",
+  "executable": "rpcs3.exe",
+  "version": {
+    "kind": "artifact-sha256"
+  },
+  "source": {
+    "provider": "rpcs3"
+  },
+  "preserve": [
+    "config",
+    "config.yml",
+    "games.yml",
+    "GuiConfigs",
+    "patches",
+    "sounds",
+    "savestates",
+    "screenshots",
+    "captures",
+    "Icons",
+    "ReShade.ini",
+    "ReShadePreset.ini",
+    "reshade-shaders",
+    "reshade-vulkan"
+  ],
+  "required_package": [
+    "rpcs3.exe",
+    "Qt6Core.dll"
+  ],
+  "required_state": [
+    "config/vfs.yml"
+  ]
+}
