@@ -1,0 +1,10 @@
+{
+  "schema": 2,
+  "name": "RPCS3 portable game",
+  "adapter": "adapters/rpcs3-windows.json",
+  "runtime": "rpcs3",
+  "channel": "latest",
+  "saves": [
+    "data/dev_hdd0/home"
+  ]
+}

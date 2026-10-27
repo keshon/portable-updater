@@ -1,0 +1,12 @@
+{
+  "schema": 2,
+  "name": "Dolphin portable game",
+  "adapter": "adapters/dolphin-windows.json",
+  "runtime": "dolphin",
+  "channel": "stable",
+  "saves": [
+    "User/GC",
+    "User/StateSaves",
+    "User/Config"
+  ]
+}

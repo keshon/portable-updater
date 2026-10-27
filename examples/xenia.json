@@ -1,0 +1,10 @@
+{
+  "schema": 2,
+  "name": "Xenia portable game",
+  "adapter": "adapters/xenia-windows.json",
+  "runtime": "xenia_master",
+  "channel": "latest",
+  "saves": [
+    "data/content"
+  ]
+}

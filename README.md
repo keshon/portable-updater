@@ -1,80 +1,82 @@
 # Portable Updater
 
-A Windows updater for emulator-based portable game folders. Double-click `updater-update.cmd` to check for a release and install it. Use `updater-rollback.cmd` to restore the previous emulator.
+A Windows x64 updater for emulators in portable game folders. It finds an official release, downloads its portable package, preserves configured settings and saves, and retains the previous runtime for rollback.
 
-The executable runs without installed Go, Python, PowerShell or 7-Zip. Each game carries its own configuration, adapter, logs and backups. Updater files live in `util/portable-update`; working files and retained runtime copies live in `tmp/portable-update`.
+Double-click `updater-update.cmd` to update or `updater-rollback.cmd` to restore the previous runtime. Running the updater needs no installed Go, Python, PowerShell or 7-Zip.
 
-## Source layout
+## Included adapters
 
-```text
-cmd/portable-updater/   executable entry point
-internal/              application and implementation packages
-adapters/              reusable emulator definitions
-schemas/               adapter and container JSON schemas
-examples/              container configuration examples
-scripts/launchers/     Windows launcher templates
-docs/                  architecture and operation details
-tmp/                    local verification output (ignored)
-```
+| Emulator | Adapter | Container example |
+| --- | --- | --- |
+| PCSX2 | [pcsx2-windows.json](adapters/pcsx2-windows.json) | [pcsx2.json](examples/pcsx2.json) |
+| RPCS3 | [rpcs3-windows.json](adapters/rpcs3-windows.json) | [rpcs3.json](examples/rpcs3.json) |
+| Cemu | [cemu-windows.json](adapters/cemu-windows.json) | [cemu.json](examples/cemu.json) |
+| Xenia | [xenia-windows.json](adapters/xenia-windows.json) | [xenia.json](examples/xenia.json) |
+| Dolphin | [dolphin-windows.json](adapters/dolphin-windows.json) | [dolphin.json](examples/dolphin.json) |
+| shadPS4 | [shadps4-windows.json](adapters/shadps4-windows.json) | [shadps4.json](examples/shadps4.json) |
+| DOSBox Pure Unleashed | [dosbox-pure-windows.json](adapters/dosbox-pure-windows.json) | [dosbox-pure.json](examples/dosbox-pure.json) |
 
-See [architecture](docs/architecture.md) for package responsibilities and dependency boundaries.
+The shadPS4 adapter updates the emulator core in the configured version directory. Its launcher GUI is separate.
 
-## Build
+## Set up a container
 
-On Windows amd64 with Go 1.25 or later:
+Start with an existing portable emulator installation in its own runtime directory. Enable its portable mode and configure its data paths before adding the updater.
 
-```cmd
-build.cmd
-build.cmd check
-```
+1. Build the updater with Go 1.25 or later on Windows:
 
-The first command produces `portable-update.exe`. `check` runs vet, compilation and tests; `test` and `fmt` are also available. The direct build command is:
+   ```cmd
+   build.cmd
+   ```
 
-```cmd
-go build -trimpath -ldflags="-s -w" -o portable-update.exe ./cmd/portable-updater
-```
-
-Dependencies are pinned in `go.mod` and `go.sum`. Their license notices are in [THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt).
-
-## Game container
+2. Copy `portable-update.exe` into the game's `util/portable-update` directory. Copy the selected adapter into its `adapters` subdirectory and the JSON schemas into its `schemas` subdirectory.
+3. Copy the matching container example above to `util/portable-update/update.json`. Adjust `name`, `runtime`, `channel` and `saves` for that container. Paths in the examples describe sample layouts; they do not relocate existing data.
+4. Copy both command files from [scripts/launchers](scripts/launchers) into the game root.
 
 ```text
 Game/
   updater-update.cmd
   updater-rollback.cmd
-  pcsx2/                       active emulator and portable settings
-  data/                        saves and other game data
+  emulator/                    active runtime; name/path comes from update.json
+  data/                        game data; paths depend on emulator configuration
   util/
     portable-update/
       portable-update.exe
-      update.json              container paths and release channel
+      update.json
       adapters/
       schemas/
       state/                   installation receipt and recovery journal
   tmp/
-    portable-update/           cache, staging, previous runtimes, snapshots, logs
+    portable-update/           downloads, staging, snapshots, retained runtimes, logs
 ```
 
-The [container configuration](examples/update.json) selects an adapter, runtime folder, channel and save paths. An adapter supplies the official release source, asset pattern, version policy, protected settings and required files. Definitions use relative paths and do not execute shell commands or installers.
+The **adapter** defines the release source, package selection, version policy, protected settings and required files for an emulator. The **container configuration** selects that adapter and supplies the runtime directory, release channel and save paths. `runtime` and `saves` are relative to the game root; `adapter` is relative to `util/portable-update`. Protected and required paths inside an adapter are relative to the runtime. The [schemas](schemas) describe the accepted fields.
 
-The supplied adapters cover PCSX2, RPCS3, Cemu, Xenia, Dolphin, shadPS4 and DOSBox Pure. Each has passed an official-package download, update, no-op and rollback cycle on a disposable Windows container, with protected-state hash checks. These checks do not certify gameplay or save-format compatibility. The shadPS4 adapter updates the core under its launcher version directory; it does not update the launcher GUI.
+For another emulator using an existing provider and version policy, add an adapter JSON file and a container configuration. A new release service or version policy requires a code change; JSON adapters do not execute shell commands or installers.
 
-## Operation
+## Update and restore
 
-The updater refuses a running emulator, selects an official release and downloads its portable ZIP or 7z package. Downloads retain completed ranges and partial chunks for retry. It checks the package, prepares a separate candidate, snapshots configured saves and copies protected settings before swapping runtime folders. The previous runtime remains available for rollback. Recognizable interrupted swaps are recovered on the next run.
+Close the game and emulator, then double-click `updater-update.cmd`. Current installations are kept when the selected version or installation receipt matches. Otherwise the updater downloads and validates a package, prepares a candidate, snapshots configured saves and copies protected settings before replacing the runtime.
 
-PCSX2 compares numeric Windows executable versions. Adapters with `artifact-sha256` identify installations through the selected release and executable hash; their first check may need to download the package for comparison.
+Downloads resume retained ranges after an interruption. Version checks use Windows executable versions or release/hash receipts, depending on the adapter; the first check for a receipt-based installation may download a package for comparison.
 
-An adapter normally requires an upstream SHA-256. Where a publisher does not supply one, `when-published` explicitly permits HTTPS delivery with archive integrity and executable checks. A locally recorded hash protects subsequent cache reads; it does not substitute for a published checksum.
+`updater-rollback.cmd` restores the previous runtime and its settings from the update moment. External saves retain their current progress. Check save/load compatibility after changing emulator versions.
 
-Successful launchers close automatically. Errors keep the console open; details go to `tmp/portable-update/update.log`. Rollback restores the previous runtime and its settings from the update moment. External saves retain their current progress.
+Successful command files close automatically. Errors keep the console open. Details are in `tmp/portable-update/update.log`.
 
-## Limits and verification
+## Integrity and storage
 
-Tests cover downloader retries/resume, digest and byte-range checks, version decisions, path/archive boundaries, process locks, preservation, rollback and interrupted swaps. Tests do not launch games or prove save compatibility.
+Adapters normally require an upstream SHA-256. The explicit `when-published` policy permits packages without a published hash, using HTTPS delivery, archive integrity checks and executable validation. A locally recorded hash checks subsequent cache reads; it is not a publisher checksum.
 
-- Windows amd64 only. Linux testing is deferred.
-- No updater self-update, whole-collection update command or registry/profile isolation.
-- Save snapshots above 2 GiB stop installation.
-- Removing `tmp/portable-update` discards cache, snapshots and rollback copies. Active saves stay in their configured game data paths. Keep the workspace while an update is running.
-- Journal recovery cannot guarantee recovery from disk corruption or power failure.
+Updater files and recovery metadata stay under `util/portable-update`. Working files and retained runtime copies stay under `tmp/portable-update`. Removing that temporary directory discards cached downloads, save snapshots and rollback copies; active saves remain in their configured game data paths. Keep the workspace while an update is running.
+
+Save snapshots above 2 GiB stop installation. Snapshot paths should identify save/configuration data, rather than entire game libraries. Protected runtime-local files are also retained with the previous runtime.
+
+Interrupted swaps with recognizable directory states are recovered on the next run. Recovery does not guarantee protection from disk corruption or power failure. Updater self-updates, automatic backup cleanup and a whole-collection update command are not implemented.
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for build/check commands and [architecture](docs/architecture.md) for package responsibilities.
+
+## License
+
+[MIT](LICENSE), copyright 2026 Innokentiy Sokolov. Dependency license notices are in [THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt).

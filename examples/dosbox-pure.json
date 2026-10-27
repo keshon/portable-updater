@@ -1,0 +1,11 @@
+{
+  "schema": 2,
+  "name": "DOSBox Pure portable game",
+  "adapter": "adapters/dosbox-pure-windows.json",
+  "runtime": "dosbox-pure",
+  "channel": "latest",
+  "saves": [
+    "saves",
+    "DOSBoxPure.cfg"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "schema": 2,
+  "name": "Cemu portable game",
+  "adapter": "adapters/cemu-windows.json",
+  "runtime": "cemu",
+  "channel": "stable",
+  "saves": [
+    "data/mlc01/usr/save"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schema": 2,
+  "name": "shadPS4 portable game",
+  "adapter": "adapters/shadps4-windows.json",
+  "runtime": "shadps4/launcher/versions/Pre-release",
+  "channel": "nightly",
+  "saves": [
+    "user/home",
+    "user/data",
+    "user/config.json",
+    "user/users.json",
+    "user/custom_configs",
+    "user/input_config"
+  ]
+}

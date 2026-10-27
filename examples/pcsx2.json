@@ -1,9 +1,12 @@
 {
-  "$schema": "../schemas/instance.schema.json",
   "schema": 2,
   "name": "PCSX2 portable game",
   "adapter": "adapters/pcsx2-windows.json",
   "runtime": "pcsx2",
   "channel": "nightly",
-  "saves": ["data/memcards", "data/sstates", "data/inputprofiles"]
+  "saves": [
+    "data/memcards",
+    "data/sstates",
+    "data/inputprofiles"
+  ]
 }
