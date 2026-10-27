@@ -31,6 +31,17 @@ func CopyFile(src, dst string) error {
 }
 
 func CopyTree(src, dst string) error {
+	resolvedSource, err := Canonical(src)
+	if err != nil {
+		return err
+	}
+	resolvedDestination, err := Canonical(dst)
+	if err != nil {
+		return err
+	}
+	if Within(resolvedSource, resolvedDestination) || Within(resolvedDestination, resolvedSource) {
+		return errors.New("source and destination trees overlap")
+	}
 	return filepath.WalkDir(src, func(p string, d fs.DirEntry, e error) error {
 		if e != nil {
 			return e

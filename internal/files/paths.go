@@ -19,6 +19,29 @@ func Within(base, p string) bool {
 	return e == nil && r != ".." && !strings.HasPrefix(r, ".."+string(os.PathSeparator)) && !filepath.IsAbs(r)
 }
 
+// Canonical resolves existing ancestors, including Windows short-name aliases.
+// Missing descendants are appended so destinations can be checked before creation.
+func Canonical(path string) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	var missing []string
+	for current := absolute; ; current = filepath.Dir(current) {
+		resolved, err := filepath.EvalSymlinks(current)
+		if err == nil {
+			for i := len(missing) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, missing[i])
+			}
+			return resolved, nil
+		}
+		if !os.IsNotExist(err) || filepath.Dir(current) == current {
+			return "", err
+		}
+		missing = append(missing, filepath.Base(current))
+	}
+}
+
 // Also reject Windows aliases/ADS, even when this source is tested elsewhere.
 
 func Relative(p string) (string, error) {

@@ -2,14 +2,18 @@ name: Windows checks
 on: [push, pull_request]
 permissions:
   contents: read
+concurrency:
+  group: windows-checks-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: windows-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go test ./...
+      - run: go test -timeout 2m ./...
       - run: go vet ./...
       - run: go build -trimpath -o portable-update.exe ./cmd/portable-updater

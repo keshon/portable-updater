@@ -25,7 +25,11 @@ func (u *transaction) stage(source string) error {
 		return e
 	}
 	runtime := u.runtime()
-	if files.Within(runtime, src) || files.Within(src, runtime) {
+	resolvedRuntime, e := files.Canonical(runtime)
+	if e != nil {
+		return e
+	}
+	if files.Within(resolvedRuntime, src) || files.Within(src, resolvedRuntime) {
 		return errors.New("source overlaps installed runtime")
 	}
 	if e = files.ValidateTree(runtime); e != nil {
@@ -40,7 +44,11 @@ func (u *transaction) stage(source string) error {
 	if e != nil {
 		return e
 	}
-	if files.Within(src, dest) {
+	resolvedDestination, e := files.Canonical(dest)
+	if e != nil {
+		return e
+	}
+	if files.Within(src, resolvedDestination) {
 		return errors.New("stage is inside source")
 	}
 	if e = os.MkdirAll(u.work, 0755); e != nil {
