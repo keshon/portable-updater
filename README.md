@@ -54,6 +54,21 @@ The **adapter** defines the release source, package selection, version policy, p
 
 For another emulator using an existing provider and version policy, add an adapter JSON file and a container configuration. A new release service or version policy requires a code change; JSON adapters do not execute shell commands or installers.
 
+## Example game containers
+
+<table>
+  <tr>
+    <th>PCSX2 — Ace Combat Zero</th>
+    <th>RPCS3 — Gran Turismo 6</th>
+  </tr>
+  <tr>
+    <td valign="top"><img src="docs/images/pcsx2-container.png" width="320" alt="Ace Combat Zero container with separate game, data, runtime, utility and temporary folders, plus update and rollback launchers"></td>
+    <td valign="top"><img src="docs/images/rpcs3-container.png" width="320" alt="Gran Turismo 6 container following the same layout with an RPCS3 runtime and update and rollback launchers"></td>
+  </tr>
+</table>
+
+Both containers keep saves and user data in `data`, updater files in `util/portable-update`, and downloads, snapshots and rollback copies in `tmp/portable-update`. The two updater commands stay in the game root. Explorer hides file extensions in these screenshots. The PCSX2 container also includes a Linux runtime; the updater currently supports Windows only.
+
 ## Update and restore
 
 Close the game and emulator, then double-click `updater-update.cmd`. Current installations are kept when the selected version or installation receipt matches. Otherwise the updater downloads and validates a package, prepares a candidate, snapshots configured saves and copies protected settings before replacing the runtime.
