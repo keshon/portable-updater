@@ -28,7 +28,7 @@ The container root is derived from the configuration's location under `util/port
 | State | Owner and purpose |
 | --- | --- |
 | Container and adapter JSON | Operator-owned policy: runtime, release selection, preservation and snapshot paths |
-| Installation receipt | Generated release identity, asset metadata and entry-point hash used for current-version decisions |
+| Installation receipt | Generated release identity, main/companion asset metadata and entry-point hash used for current-version decisions |
 | Transaction journal | Generated phase and candidate/previous/snapshot paths used for swap recovery and rollback |
 | Active runtime | Application binaries and any configured runtime-local state |
 | External user data | Application-owned state outside the runtime; runtime swaps do not replace it |
@@ -44,7 +44,7 @@ All replacement directories stay on the container volume. Updater home and worki
 2. Hash the installed entry point and query the configured release provider. A numeric Windows version comparison or matching release/hash receipt can finish without a download.
 3. Download or reuse a cached package and verify its integrity according to the provider and adapter policy.
 4. Prepare a clean candidate. Archive packages use ZIP/7z extraction. Executable-unpack packages run the verified release asset with declarative adapter arguments, temporary files under the working directory and a bounded subprocess runtime.
-5. Stage and validate the candidate's required contents and entry point. A receipt-based installation without a matching receipt can compare candidate files to the installed runtime, excluding protected paths, and record that it is current without replacing it.
+5. Stage and validate the candidate's required contents and entry point. Required companion archives are downloaded from the same selected release and merged into the staged candidate before validation. A receipt-based installation without a matching receipt can compare candidate files to the installed runtime, excluding protected paths, and record that it is current without replacing it.
 6. Snapshot configured data, move aside package defaults at protected paths, and copy the live runtime's protected settings into the candidate.
 7. Record the transition, rename the active runtime to a previous copy, and rename the candidate into place. Record the applied phase and installation receipt.
 

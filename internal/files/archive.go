@@ -53,7 +53,10 @@ func extractFile(dst, name string, mode fs.FileMode, open func() (io.ReadCloser,
 	return ce
 }
 
-func Extract(src, dst string) error {
+func Extract(src, dst string) error { return ExtractLimit(src, dst, 2<<30) }
+
+// ExtractLimit bounds the added archive contents before creating its files.
+func ExtractLimit(src, dst string, limit uint64) error {
 	seen := map[string]bool{}
 	switch strings.ToLower(filepath.Ext(src)) {
 	case ".zip":
@@ -67,10 +70,10 @@ func Extract(src, dst string) error {
 		}
 		var total uint64
 		for _, f := range r.File {
-			total += f.UncompressedSize64
-			if total > 2<<30 {
-				return errors.New("unpacked package exceeds 2 GiB")
+			if f.UncompressedSize64 > limit-total {
+				return errors.New("unpacked package exceeds remaining size limit")
 			}
+			total += f.UncompressedSize64
 		}
 		for _, f := range r.File {
 			if e = extractFile(dst, f.Name, f.Mode(), f.Open, seen); e != nil {
@@ -92,10 +95,10 @@ func Extract(src, dst string) error {
 			if n < 0 {
 				return errors.New("invalid archive size")
 			}
-			total += uint64(n)
-			if total > 2<<30 {
-				return errors.New("unpacked package exceeds 2 GiB")
+			if uint64(n) > limit-total {
+				return errors.New("unpacked package exceeds remaining size limit")
 			}
+			total += uint64(n)
 		}
 		for _, f := range r.File {
 			if e = extractFile(dst, f.Name, f.Mode(), f.Open, seen); e != nil {

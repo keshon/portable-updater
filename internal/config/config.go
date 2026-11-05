@@ -143,6 +143,22 @@ func Load(path string) (*Config, error) {
 	if adapter.Source.Feed != nil && adapter.Source.Feed.Channels[instance.Channel] == "" {
 		return nil, errors.New("adapter does not define the configured channel")
 	}
+	if len(adapter.Source.CompanionPatterns) > 0 {
+		if len(adapter.Source.CompanionPatterns) > 4 || (adapter.Source.Provider != "github" && adapter.Source.Provider != "forgejo") {
+			return nil, errors.New("companion archives require a repository provider and at most four patterns")
+		}
+		if adapter.Package == "executable-unpack" || adapter.Version.Kind != "artifact-sha256" {
+			return nil, errors.New("companion archives require an archive package and artifact identity")
+		}
+		for _, pattern := range adapter.Source.CompanionPatterns {
+			if pattern == "" {
+				return nil, errors.New("empty companion pattern")
+			}
+			if _, e = regexp.Compile(pattern); e != nil {
+				return nil, e
+			}
+		}
+	}
 	if !release.Supports(adapter.Source.Provider) {
 		return nil, errors.New("unsupported release provider")
 	}

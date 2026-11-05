@@ -45,7 +45,9 @@ For an application using an existing provider, package format and version policy
 
 The [adapter schema](../schemas/adapter.schema.json) and [instance schema](../schemas/instance.schema.json) define the document formats. Runtime loading is implemented in `internal/config`; the updater does not run a general JSON Schema validator. When adding a field, keep the schema, Go model, loader validation, examples and affected documentation consistent.
 
-For a JSON release endpoint, use the declarative feed fields below before adding a provider. A new release protocol belongs in `internal/release`; a new package preparation method belongs in `internal/updater`. Register supported values in configuration validation and schemas. Package implementations use fixed behavior. The `executable-unpack` format runs only the verified download, with an adapter argument array and exactly one `{destination}` placeholder. It cannot select another program or invoke a shell. Keep application-specific flags and executable names in adapters.
+For a JSON release endpoint, use the declarative feed fields below before adding a provider. For repository release assets split across multiple archives, `source.companion_patterns` selects up to four required companion archives from the same release. Each expression must match exactly one different asset. Companions require archive preparation and `artifact-sha256` identity, merge at the candidate root without replacing files, and participate in receipt comparison. The [llama.cpp adapter](../adapters/llamacpp-windows.json) is an example.
+
+A new release protocol belongs in `internal/release`; a new package preparation method belongs in `internal/updater`. Register supported values in configuration validation and schemas. Package implementations use fixed behavior. The `executable-unpack` format runs only the verified download, with an adapter argument array and exactly one `{destination}` placeholder. It cannot select another program or invoke a shell. Keep application-specific flags and executable names in adapters.
 
 ### JSON release feeds
 

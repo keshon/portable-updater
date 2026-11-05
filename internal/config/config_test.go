@@ -9,7 +9,7 @@ import (
 )
 
 func TestExecutableUnpackPolicy(t *testing.T) {
-	for _, mode := range []string{"valid", "valid-numeric", "unknown-format", "optional-checksum", "missing-destination", "duplicate-destination", "unknown-placeholder", "empty-arguments", "archive-with-arguments", "entrypoint-preservation", "ancestor-preservation"} {
+	for _, mode := range []string{"valid", "valid-numeric", "unknown-format", "optional-checksum", "missing-destination", "duplicate-destination", "unknown-placeholder", "empty-arguments", "archive-with-arguments", "unpack-with-companions", "entrypoint-preservation", "ancestor-preservation"} {
 		t.Run(mode, func(t *testing.T) {
 			root := t.TempDir()
 			home := filepath.Join(root, "util/portable-update")
@@ -22,6 +22,8 @@ func TestExecutableUnpackPolicy(t *testing.T) {
 				t.Fatal(err)
 			}
 			switch mode {
+			case "unpack-with-companions":
+				adapter.Source.CompanionPatterns = []string{`^deps.zip$`}
 			case "entrypoint-preservation":
 				adapter.Preserve = []string{adapter.Executable}
 			case "ancestor-preservation":

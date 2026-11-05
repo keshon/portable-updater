@@ -1,0 +1,8 @@
+{
+  "schema": 2,
+  "name": "llama.cpp",
+  "adapter": "adapters/llamacpp-windows.json",
+  "runtime": "llama",
+  "channel": "nightly",
+  "saves": []
+}

@@ -57,16 +57,17 @@ func (p *Engine) validateCandidate(path string, expected Version) error {
 }
 
 type Receipt struct {
-	Adapter         string        `json:"adapter"`
-	Tag             string        `json:"tag"`
-	Asset           release.Asset `json:"asset"`
-	ExecutableHash  string        `json:"executable_hash"`
-	InstalledAt     string        `json:"installed_at"`
-	PreviousRuntime string        `json:"previous_runtime"`
+	Adapter         string          `json:"adapter"`
+	Tag             string          `json:"tag"`
+	Asset           release.Asset   `json:"asset"`
+	Companions      []release.Asset `json:"companions,omitempty"`
+	ExecutableHash  string          `json:"executable_hash"`
+	InstalledAt     string          `json:"installed_at"`
+	PreviousRuntime string          `json:"previous_runtime"`
 }
 
 func (p *Engine) writeReceipt(selected release.Selection, hash string) error {
-	return jsonFile(filepath.Join(p.home, "state/installed.json"), Receipt{Adapter: p.Adapter.ID, Tag: selected.Tag, Asset: selected.Asset, ExecutableHash: hash, InstalledAt: files.Stamp(), PreviousRuntime: p.state.Previous})
+	return jsonFile(filepath.Join(p.home, "state/installed.json"), Receipt{Adapter: p.Adapter.ID, Tag: selected.Tag, Asset: selected.Asset, Companions: selected.Companions, ExecutableHash: hash, InstalledAt: files.Stamp(), PreviousRuntime: p.state.Previous})
 }
 func sameRelease(a, b release.Asset) bool {
 	return a.URL == b.URL && a.Size == b.Size && a.Digest == b.Digest && a.ID == b.ID && a.UpdatedAt == b.UpdatedAt
@@ -165,6 +166,9 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) (resultErr error
 	if e != nil {
 		return e
 	}
+	if len(selected.Companions) != len(p.Adapter.Source.CompanionPatterns) {
+		return errors.New("release did not supply all configured companion archives")
+	}
 	if numeric {
 		latest, e = parseVersion(selected.Tag)
 		if e != nil {
@@ -180,12 +184,14 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) (resultErr error
 		}
 	}
 	var receipt Receipt
-	if b, e := os.ReadFile(filepath.Join(p.home, "state/installed.json")); e == nil && json.Unmarshal(b, &receipt) == nil && receipt.Adapter == p.Adapter.ID && receipt.Tag == selected.Tag && sameRelease(receipt.Asset, selected.Asset) && receipt.ExecutableHash == currentHash {
+	if b, e := os.ReadFile(filepath.Join(p.home, "state/installed.json")); e == nil && json.Unmarshal(b, &receipt) == nil && receipt.Adapter == p.Adapter.ID && receipt.Tag == selected.Tag && sameRelease(receipt.Asset, selected.Asset) && sameCompanions(receipt.Companions, selected.Companions) && receipt.ExecutableHash == currentHash {
 		console.New(display).Success("Already current (%s).", selected.Tag)
 		return nil
 	}
-	if selected.Asset.Digest == "" && (p.Adapter.Source.Checksum != "when-published" || p.Adapter.Package == "executable-unpack") {
-		return errors.New("checksum policy requires a published release digest; current runtime kept")
+	for _, asset := range append([]release.Asset{selected.Asset}, selected.Companions...) {
+		if asset.Digest == "" && (p.Adapter.Source.Checksum != "when-published" || p.Adapter.Package == "executable-unpack") {
+			return errors.New("checksum policy requires a published release digest; current runtime kept")
+		}
 	}
 	fmt.Fprintf(display, "Updating %s -> %s (%s).\n", currentString, selected.Tag, p.Instance.Channel)
 	fmt.Fprintf(p.output(), "Integrity policy: %s; published digest: %s\n", p.Adapter.Source.Checksum, selected.Asset.Digest)
@@ -196,6 +202,19 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) (resultErr error
 	if e = download.Fetch(ctx, selected.Asset, path, display); e != nil {
 		return fmt.Errorf("could not download the update; the new package was not installed. Check the connection and run updater-update.cmd again: %w", e)
 	}
+	var companionPaths []string
+	for _, asset := range selected.Companions {
+		companion, e := download.CachePath(p.work, asset)
+		if e != nil {
+			return e
+		}
+		fmt.Fprintf(display, "Downloading required package: %s\n", asset.Name)
+		if e = download.Fetch(ctx, asset, companion, display); e != nil {
+			return fmt.Errorf("companion download failed; the new package was not installed: %w", e)
+		}
+		companionPaths = append(companionPaths, companion)
+	}
+
 	if e = platform.GuardProcesses(p.runtime()); e != nil {
 		return e
 	}
@@ -237,6 +256,10 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) (resultErr error
 	if e != nil {
 		return e
 	}
+	if e = p.mergeCompanions(candidate, companionPaths); e != nil {
+		return e
+	}
+
 	if e = p.validateCandidate(candidate, latest); e != nil {
 		return e
 	}
@@ -298,5 +321,33 @@ func (p *Engine) Restore(display io.Writer) error {
 		return e
 	}
 	console.New(display).Success("Restored %s. External data kept at its current state.", value)
+	return nil
+}
+
+func sameCompanions(a, b []release.Asset) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !sameRelease(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *Engine) mergeCompanions(candidate string, archives []string) error {
+	for _, archive := range archives {
+		size, err := files.Size(candidate)
+		if err != nil {
+			return err
+		}
+		if size > 2<<30 {
+			return errors.New("combined package exceeds 2 GiB")
+		}
+		if err = files.ExtractLimit(archive, candidate, uint64((2<<30)-size)); err != nil {
+			return fmt.Errorf("cannot merge companion archive: %w", err)
+		}
+	}
 	return nil
 }

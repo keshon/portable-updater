@@ -17,12 +17,13 @@ import (
 )
 
 type Source struct {
-	Provider     string    `json:"provider"`
-	Repository   string    `json:"repository"`
-	AssetPattern string    `json:"asset_pattern"`
-	Host         string    `json:"host,omitempty"`
-	Checksum     string    `json:"checksum,omitempty"`
-	Feed         *JSONFeed `json:"feed,omitempty"`
+	Provider          string    `json:"provider"`
+	Repository        string    `json:"repository"`
+	AssetPattern      string    `json:"asset_pattern"`
+	Host              string    `json:"host,omitempty"`
+	Checksum          string    `json:"checksum,omitempty"`
+	Feed              *JSONFeed `json:"feed,omitempty"`
+	CompanionPatterns []string  `json:"companion_patterns,omitempty"`
 }
 type Asset struct {
 	Name      string `json:"name"`
@@ -40,8 +41,9 @@ type Release struct {
 	Assets     []Asset   `json:"assets"`
 }
 type Selection struct {
-	Tag   string `json:"tag"`
-	Asset Asset  `json:"asset"`
+	Tag        string  `json:"tag"`
+	Asset      Asset   `json:"asset"`
+	Companions []Asset `json:"companions,omitempty"`
 }
 type ReleaseProvider interface {
 	Latest(context.Context, Source, string) (Selection, error)
@@ -105,27 +107,35 @@ func selectRelease(releases []Release, source Source, channel string) (Selection
 			return Selection{}, errors.New("upstream package selection is ambiguous")
 		}
 		if len(assets) == 1 {
-			a := assets[0]
-			if _, e = files.Relative(a.Name); e != nil || strings.ContainsAny(a.Name, "/\\") {
-				return Selection{}, errors.New("unsafe upstream filename")
+			selection := Selection{Tag: r.Tag, Asset: assets[0]}
+			seen := map[string]bool{strings.ToLower(assets[0].Name): true}
+			for _, expression := range source.CompanionPatterns {
+				matcher, e := regexp.Compile(expression)
+				if e != nil {
+					return Selection{}, e
+				}
+				var matches []Asset
+				for _, asset := range r.Assets {
+					if matcher.MatchString(asset.Name) {
+						matches = append(matches, asset)
+					}
+				}
+				if len(matches) != 1 {
+					return Selection{}, fmt.Errorf("companion package selection matched %d assets; expected one", len(matches))
+				}
+				key := strings.ToLower(matches[0].Name)
+				if seen[key] {
+					return Selection{}, errors.New("a release asset was selected more than once")
+				}
+				seen[key] = true
+				selection.Companions = append(selection.Companions, matches[0])
 			}
-			host := "https://github.com"
-			if source.Provider == "forgejo" {
-				host = source.Host
+			for _, asset := range append([]Asset{selection.Asset}, selection.Companions...) {
+				if err := validateRepositoryAsset(asset, source); err != nil {
+					return Selection{}, err
+				}
 			}
-			if !strings.HasPrefix(a.URL, host+"/"+source.Repository+"/releases/download/") {
-				return Selection{}, errors.New("unexpected upstream download URL")
-			}
-			if a.Digest == "" && source.Checksum == "when-published" {
-				// TLS and the archive decoder remain mandatory; no upstream digest
-				// is claimed. The locally computed hash protects subsequent reuse.
-			} else if !regexp.MustCompile(`^sha256:[a-f0-9]{64}$`).MatchString(a.Digest) {
-				return Selection{}, errors.New("upstream SHA-256 is missing; current emulator kept")
-			}
-			if a.Size <= 0 || a.Size > 2<<30 {
-				return Selection{}, errors.New("upstream package size is outside limits")
-			}
-			return Selection{Tag: r.Tag, Asset: a}, nil
+			return selection, nil
 		}
 	}
 	return Selection{}, errors.New("no portable Windows package found for the configured channel")
@@ -138,4 +148,26 @@ func Lookup(name string) (ReleaseProvider, error) {
 		return nil, fmt.Errorf("unsupported release provider: %s", name)
 	}
 	return p, nil
+}
+
+func validateRepositoryAsset(a Asset, source Source) error {
+	if _, err := files.Relative(a.Name); err != nil || strings.ContainsAny(a.Name, "/\\") {
+		return errors.New("unsafe upstream filename")
+	}
+	host := "https://github.com"
+	if source.Provider == "forgejo" {
+		host = source.Host
+	}
+	if !strings.HasPrefix(a.URL, host+"/"+source.Repository+"/releases/download/") {
+		return errors.New("unexpected upstream download URL")
+	}
+	if a.Digest == "" && source.Checksum == "when-published" {
+		// No publisher identity is claimed for the locally computed cache digest.
+	} else if !regexp.MustCompile(`^sha256:[a-f0-9]{64}$`).MatchString(a.Digest) {
+		return errors.New("upstream SHA-256 is missing; current application kept")
+	}
+	if a.Size <= 0 || a.Size > 2<<30 {
+		return errors.New("upstream package size is outside limits")
+	}
+	return nil
 }

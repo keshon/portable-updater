@@ -32,6 +32,7 @@ Update and rollback are run through the container's command files. A console wiz
 | Application | Adapter | Container example |
 | --- | --- | --- |
 | DuckStation | [duckstation-windows.json](adapters/duckstation-windows.json) | [duckstation.json](examples/duckstation.json) |
+| llama.cpp (CUDA 13.4) | [llamacpp-windows.json](adapters/llamacpp-windows.json) | [llamacpp.json](examples/llamacpp.json) |
 | KoboldCpp (CUDA) | [koboldcpp-windows.json](adapters/koboldcpp-windows.json) | [koboldcpp.json](examples/koboldcpp.json) |
 | PCSX2 | [pcsx2-windows.json](adapters/pcsx2-windows.json) | [pcsx2.json](examples/pcsx2.json) |
 | RPCS3 | [rpcs3-windows.json](adapters/rpcs3-windows.json) | [rpcs3.json](examples/rpcs3.json) |

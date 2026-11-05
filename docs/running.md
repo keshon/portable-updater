@@ -97,6 +97,8 @@ The RPCS3 and Dolphin mappings are declared in their adapters using the generic 
 
 ### Adapter-specific setup
 
+- **llama.cpp:** the CUDA 13.4 Windows x64 profile uses the `nightly` channel and updates the application ZIP together with its CUDA runtime ZIP from the same release. The runtime folder is `llama`; keep model files, launch scripts and benchmark results outside it. Tagged stable releases currently link to nightly builds rather than supplying the selected Windows archives. This profile does not install GPU drivers or alter model launch arguments.
+
 - **shadPS4:** the adapter targets the emulator core in the configured version directory. The launcher GUI is separate.
 - **KoboldCpp:** use the existing `extracted` directory as the runtime and launch `extracted/koboldcpp-launcher.exe` from model scripts. Keep models, user configuration and server data outside that directory. The example snapshots no data and does not configure model paths. The adapter selects the standard CUDA executable.
 
@@ -147,7 +149,7 @@ Keep the journal and retained folders together during recovery. Do not remove th
 
 GitHub and Forgejo package selection normally requires a published SHA-256. The explicit `when-published` policy allows an absent publisher digest; HTTPS delivery, archive checks and candidate validation still apply. A locally recorded cache hash detects changes on reuse and does not authenticate the publisher. RPCS3 requires its official feed's checksum; the Dolphin adapter explicitly permits its feed to omit a package digest.
 
-Archive packages use ZIP/7z extraction. The `executable-unpack` format requires a published SHA-256, then runs the downloaded Windows x64 executable with the adapter's argument list in a separate temporary directory. The `{destination}` placeholder is replaced with the updater-owned extraction path, and no shell is used. KoboldCpp supplies `--unpack` through its adapter. Its Python runtime is bundled. This runs upstream code with the updater process's permissions; the working directory is not an OS sandbox. The extracted package is validated before staging. A timeout stops the direct unpack executable; descendant-process termination is not guaranteed.
+Archive packages use ZIP/7z extraction. Repository adapters may declare required companion archives from the same release. Each archive follows the checksum policy; companions are extracted into the staged application, cannot overwrite existing package files, and share a combined 2 GiB unpacked limit. The previous application is kept until all required contents validate. The `executable-unpack` format requires a published SHA-256, then runs the downloaded Windows x64 executable with the adapter's argument list in a separate temporary directory. The `{destination}` placeholder is replaced with the updater-owned extraction path, and no shell is used. KoboldCpp supplies `--unpack` through its adapter. Its Python runtime is bundled. This runs upstream code with the updater process's permissions; the working directory is not an OS sandbox. The extracted package is validated before staging. A timeout stops the direct unpack executable; descendant-process termination is not guaranteed.
 
 ## Troubleshooting
 

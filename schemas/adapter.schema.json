@@ -202,6 +202,16 @@
               }
             }
           ]
+        },
+        "companion_patterns": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "allOf": [
@@ -242,6 +252,23 @@
               "required": [
                 "feed"
               ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "companion_patterns"
+            ]
+          },
+          "then": {
+            "properties": {
+              "provider": {
+                "enum": [
+                  "github",
+                  "forgejo"
+                ]
+              }
             }
           }
         }
@@ -316,6 +343,31 @@
           "required": [
             "unpack"
           ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source": {
+            "required": [
+              "companion_patterns"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "version": {
+            "properties": {
+              "kind": {
+                "const": "artifact-sha256"
+              }
+            }
+          },
+          "package": {
+            "const": "archive"
+          }
         }
       }
     }
