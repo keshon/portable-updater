@@ -83,7 +83,7 @@ func TestEditBackupsAndChannelSurviveBackToReview(t *testing.T) {
 	root, exe := fixture(t)
 	custom := "data/personal,settings.ini"
 	put(t, filepath.Join(root, custom), []byte("keep me"))
-	input := strings.Join([]string{root, "e", "4", "invalid", "stable", "3", "r", "1", "a", filepath.Join(root, custom), "a", filepath.Join(root, custom), "a", filepath.Join(root, "data"), "", "", "", ""}, "\n")
+	input := strings.Join([]string{root, "4", "invalid", "stable", "3", "r", "1", filepath.Join(root, custom), filepath.Join(root, custom), filepath.Join(root, "data"), "", "", ""}, "\n")
 	var out bytes.Buffer
 	if err := Wizard(strings.NewReader(input), &out, exe); err != nil {
 		t.Fatal(err)
@@ -151,7 +151,7 @@ func TestSelfHostedSetupNeedsOnlyConfirmation(t *testing.T) {
 func TestBackFromManualEditKeepsReview(t *testing.T) {
 	root, exe := fixture(t)
 	var out bytes.Buffer
-	if err := Wizard(strings.NewReader(root+"\ne\n2\nb\n\nq\n"), &out, exe); err != nil {
+	if err := Wizard(strings.NewReader(root+"\np\nb\nq\n"), &out, exe); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Count(out.String(), "Set up DuckStation") != 2 {
@@ -159,5 +159,28 @@ func TestBackFromManualEditKeepsReview(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "util")); !os.IsNotExist(err) {
 		t.Fatal("back/cancel wrote files")
+	}
+}
+
+func TestFilesFolderCanBeChangedDirectlyWithoutChoosingTypeAgain(t *testing.T) {
+	root, exe := fixture(t)
+	if err := files.CopyTree(filepath.Join(root, "duckstation"), filepath.Join(root, "alternate")); err != nil {
+		t.Fatal(err)
+	}
+	entry := filepath.Join(root, "duckstation/duckstation-qt-x64-ReleaseLTCG.exe")
+	input := strings.Join([]string{entry, "4", "nightly", "2", filepath.Join(root, "alternate"), "", ""}, "\n")
+	var out bytes.Buffer
+	if err := Wizard(strings.NewReader(input), &out, exe); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "Application number") || strings.Contains(out.String(), "Edit choices") {
+		t.Fatal("extra navigation returned", out.String())
+	}
+	c, err := config.Load(filepath.Join(root, "util/portable-update/update.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Instance.Runtime != "alternate" || c.Instance.Channel != "nightly" || len(c.Instance.Saves) != 1 {
+		t.Fatalf("choices lost: %+v", c.Instance)
 	}
 }

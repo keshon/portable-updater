@@ -219,8 +219,12 @@ func (w *wizard) manual(root string) (Candidate, error) {
 		}
 		w.out.Warning("Choose one of the listed numbers.")
 	}
+	return w.runtimeFolder(root, profile, profile.Instance.Runtime)
+}
+
+func (w *wizard) runtimeFolder(root string, profile Profile, current string) (Candidate, error) {
 	for {
-		fmt.Fprintf(w.out, "Folder containing %s. Enter uses %s\n", profile.Adapter.Executable, filepath.Join(root, profile.Instance.Runtime))
+		fmt.Fprintf(w.out, "Folder containing %s. Enter uses %s\n", profile.Adapter.Executable, filepath.Join(root, current))
 		value, err := w.read("Application files (B goes back): ")
 		if err != nil {
 			return Candidate{}, err
@@ -229,7 +233,7 @@ func (w *wizard) manual(root string) (Candidate, error) {
 			return Candidate{}, errBack
 		}
 		if value == "" {
-			value = profile.Instance.Runtime
+			value = current
 		}
 		if !filepath.IsAbs(value) {
 			value = filepath.Join(root, value)
@@ -237,8 +241,8 @@ func (w *wizard) manual(root string) (Candidate, error) {
 		candidateRoot := root
 		relative, e := filepath.Rel(candidateRoot, value)
 		if e == nil && relative == "." {
-			candidateRoot = filepath.Dir(value)
-			relative = filepath.Base(value)
+			w.out.Warning("That is the outer folder. Choose its application-files subfolder.")
+			continue
 		}
 		if e != nil {
 			w.out.Warning("Choose a folder inside %s.", root)
@@ -282,106 +286,104 @@ func (w *wizard) run(initial string) error {
 			fmt.Fprintln(w.out, "\nPress Enter to close.")
 			w.input.Scan()
 			return w.input.Err()
-		case "e":
-			updated, e := w.edit(plan)
+		case "1", "2", "3", "4", "p", "d":
+			updated, e := w.change(plan, strings.ToLower(answer))
 			if e != nil {
 				return e
 			}
 			plan = updated
 		default:
-			w.out.Warning("Press Enter to set up, E to edit, or Q to cancel.")
+			w.out.Warning("Press Enter to set up, 1-4 to change a setting, P for application type, D for details, or Q to cancel.")
 		}
 	}
 }
 
 func (w *wizard) review(plan *Plan) {
 	w.out.Heading("\nSet up %s", plan.Profile.Name())
-	fmt.Fprintf(w.out, "\nApplication folder  %s\nApplication files   %s\\\n", plan.Root, filepath.FromSlash(plan.Instance.Runtime))
+	fmt.Fprintf(w.out, "\n1  Application folder  %s\n2  Application files   %s\\\n", plan.Root, filepath.FromSlash(plan.Instance.Runtime))
 	if len(plan.Instance.Saves) == 0 {
-		fmt.Fprintln(w.out, "Extra backups       None selected")
+		fmt.Fprintln(w.out, "3  Extra backups       None selected")
 	} else {
-		fmt.Fprintln(w.out, "Extra backups       Before each update:")
+		fmt.Fprintln(w.out, "3  Extra backups       Before each update:")
 		for _, path := range plan.Instance.Saves {
-			fmt.Fprintf(w.out, "                    %s\n", filepath.FromSlash(path))
+			fmt.Fprintf(w.out, "                       %s\n", filepath.FromSlash(path))
 		}
 	}
-	fmt.Fprintln(w.out, "\nCreate updater configuration and update/restore shortcuts.")
-	fmt.Fprintln(w.out, "Existing matching updater files will be reused. No application update starts now.")
-	w.out.Action("\nEnter  Set up updater    E  Edit choices    Q  Cancel")
+	fmt.Fprintf(w.out, "4  Release channel     %s\n", plan.Instance.Channel)
+	fmt.Fprintln(w.out, "\nCreate configuration and update/restore shortcuts. Matching files are reused.")
+	fmt.Fprintln(w.out, "No application update starts during setup.")
+	w.out.Action("\nEnter  Set up updater    1-4  Change a setting    Q  Cancel")
+	w.out.Action("P  Change application type    D  Preserved settings details")
 }
 
-func (w *wizard) edit(plan *Plan) (*Plan, error) {
-	for {
-		w.out.Heading("\nEdit %s setup", plan.Profile.Name())
-		fmt.Fprintln(w.out, "1  Application location\n2  Application type / files folder\n3  Extra backups\n4  Release channel\n5  Preserved settings details")
-		w.out.Action("Enter  Back to review    Q  Cancel setup")
-		answer, err := w.read("> ")
+func (w *wizard) change(plan *Plan, field string) (*Plan, error) {
+	switch field {
+	case "1", "2", "p":
+		var candidate Candidate
+		var err error
+		switch field {
+		case "1":
+			candidate, err = w.locate("")
+		case "2":
+			candidate, err = w.runtimeFolder(plan.Root, plan.Profile, plan.Instance.Runtime)
+		case "p":
+			candidate, err = w.manual(plan.Root)
+		}
+		if errors.Is(err, errBack) {
+			return plan, nil
+		}
 		if err != nil {
 			return nil, err
 		}
-		switch strings.ToLower(answer) {
-		case "", "b":
+		var saves []string
+		keepChoices := field == "2" || (field == "p" && candidate.Profile.ID == plan.Profile.ID)
+		if keepChoices {
+			saves = append([]string{}, plan.Instance.Saves...)
+		}
+		updated, err := Prepare(candidate.Root, candidate.Profile.ID, candidate.Runtime, saves)
+		if err != nil {
+			w.out.Error("Cannot use this setup: %s", err)
 			return plan, nil
-		case "1", "2":
-			var c Candidate
-			if answer == "1" {
-				c, err = w.locate("")
-			} else {
-				c, err = w.manual(plan.Root)
-			}
+		}
+		if keepChoices {
+			updated.Instance.Channel = plan.Instance.Channel
+		}
+		return updated, nil
+	case "3":
+		return w.backups(plan)
+	case "4":
+		for {
+			fmt.Fprintf(w.out, "Current release channel: %s\n", plan.Instance.Channel)
+			value, err := w.read("Channel: stable, latest or nightly (Enter keeps current, B goes back): ")
 			if err != nil {
-				if errors.Is(err, errBack) {
-					continue
-				}
 				return nil, err
 			}
-			updated, e := Prepare(c.Root, c.Profile.ID, c.Runtime, nil)
-			if e != nil {
-				w.out.Error("Cannot use this setup: %s", e)
+			value = strings.ToLower(value)
+			if value == "" || value == "b" {
+				return plan, nil
+			}
+			if value != "stable" && value != "latest" && value != "nightly" {
+				w.out.Warning("Choose stable, latest or nightly.")
 				continue
 			}
-			plan = updated
-		case "3":
-			updated, e := w.backups(plan)
-			if e != nil {
-				return nil, e
+			if f := plan.Profile.Adapter.Source.Feed; f != nil && f.Channels[value] == "" {
+				w.out.Warning("This application does not provide that channel.")
+				continue
 			}
-			plan = updated
-		case "4":
-			for {
-				fmt.Fprintf(w.out, "Current release channel: %s\n", plan.Instance.Channel)
-				value, e := w.read("Channel: stable, latest or nightly (Enter keeps current): ")
-				if e != nil {
-					return nil, e
-				}
-				if value == "" {
-					break
-				}
-				value = strings.ToLower(value)
-				if value != "stable" && value != "latest" && value != "nightly" {
-					w.out.Warning("Choose stable, latest or nightly.")
-					continue
-				}
-				if f := plan.Profile.Adapter.Source.Feed; f != nil && f.Channels[value] == "" {
-					w.out.Warning("This application does not provide that channel.")
-					continue
-				}
-				plan.Instance.Channel = value
-				break
-			}
-		case "5":
-			fmt.Fprintln(w.out, "\nSettings copied from the current application-files folder before replacement:")
-			if len(plan.Profile.Adapter.Preserve) == 0 {
-				fmt.Fprintln(w.out, "None configured. Keep personal data outside the application-files folder.")
-			}
-			for _, path := range plan.Profile.Adapter.Preserve {
-				fmt.Fprintf(w.out, "  %s\n", path)
-			}
-			fmt.Fprintln(w.out, "Extra backups are separate copies. Restoring the previous application does not restore those copies automatically.")
-		default:
-			w.out.Warning("Choose 1-5, Enter to review, or Q to cancel.")
+			plan.Instance.Channel = value
+			return plan, nil
 		}
+	case "d":
+		fmt.Fprintln(w.out, "\nSettings copied from the current application-files folder before replacement:")
+		if len(plan.Profile.Adapter.Preserve) == 0 {
+			fmt.Fprintln(w.out, "None configured. Keep personal data outside the application-files folder.")
+		}
+		for _, path := range plan.Profile.Adapter.Preserve {
+			fmt.Fprintf(w.out, "  %s\n", path)
+		}
+		fmt.Fprintln(w.out, "Extra backups are separate copies. Restoring the previous application does not restore those copies automatically.")
 	}
+	return plan, nil
 }
 
 func (w *wizard) backups(plan *Plan) (*Plan, error) {
@@ -396,9 +398,11 @@ func (w *wizard) backups(plan *Plan) (*Plan, error) {
 		}
 		fmt.Fprintln(w.out, "These are extra backup copies. Keep large model and game libraries out of this list.")
 		if len(selected) > 0 {
-			w.out.Action("A  Add a file or folder    R  Remove    Enter  Done    Q  Cancel setup")
+			fmt.Fprintln(w.out, "Paste a file or folder to add it.")
+			w.out.Action("R  Remove    Enter  Done    Q  Cancel setup")
 		} else {
-			w.out.Action("A  Add a file or folder    Enter  Done    Q  Cancel setup")
+			fmt.Fprintln(w.out, "Paste a file or folder to add it.")
+			w.out.Action("Enter  Done    Q  Cancel setup")
 		}
 		answer, err := w.read("> ")
 		if err != nil {
@@ -412,10 +416,14 @@ func (w *wizard) backups(plan *Plan) (*Plan, error) {
 			}
 			updated.Instance.Channel = plan.Instance.Channel
 			return updated, nil
-		case "a":
-			value, e := w.read("File or folder (paste or drag; Enter goes back): ")
-			if e != nil {
-				return nil, e
+		default:
+			value := answer
+			var e error
+			if strings.EqualFold(value, "a") {
+				value, e = w.read("File or folder (paste or drag; Enter goes back): ")
+				if e != nil {
+					return nil, e
+				}
 			}
 			if value == "" {
 				continue
@@ -460,8 +468,6 @@ func (w *wizard) backups(plan *Plan) (*Plan, error) {
 				continue
 			}
 			selected = append(selected[:n-1], selected[n:]...)
-		default:
-			w.out.Warning("Choose A, R, Enter to finish, or Q to cancel setup.")
 		}
 	}
 }
