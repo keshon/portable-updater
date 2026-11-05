@@ -49,3 +49,17 @@ func (w *Writer) Action(format string, args ...any)  { w.line("36", format, args
 func (w *Writer) Success(format string, args ...any) { w.line("32", format, args...) }
 func (w *Writer) Warning(format string, args ...any) { w.line("33", format, args...) }
 func (w *Writer) Error(format string, args ...any)   { w.line("31", format, args...) }
+
+// Option accents the key while keeping its description in normal terminal text.
+func (w *Writer) Option(key, description string) {
+	label := "[" + key + "]"
+	plain := fmt.Sprintf("%-7s %s\n", label, description)
+	if w.color {
+		fmt.Fprintf(w.out, "\x1b[36m%-7s\x1b[0m %s\n", label, description)
+	} else {
+		fmt.Fprint(w.out, plain)
+	}
+	if w.log != nil {
+		fmt.Fprint(w.log, plain)
+	}
+}

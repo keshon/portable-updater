@@ -300,20 +300,25 @@ func (w *wizard) run(initial string) error {
 
 func (w *wizard) review(plan *Plan) {
 	w.out.Heading("\nSet up %s", plan.Profile.Name())
-	fmt.Fprintf(w.out, "\n1  Application folder  %s\n2  Application files   %s\\\n", plan.Root, filepath.FromSlash(plan.Instance.Runtime))
+	fmt.Fprintln(w.out, "\nCreates configuration and update/restore shortcuts.")
+	fmt.Fprintln(w.out, "Reuses matching files. No application update starts during setup.")
+	fmt.Fprintln(w.out)
+	w.out.Option("1", fmt.Sprintf("%-19s %s", "Application folder", plan.Root))
+	w.out.Option("2", fmt.Sprintf("%-19s %s", "Application files", filepath.FromSlash(plan.Instance.Runtime)+"\\"))
 	if len(plan.Instance.Saves) == 0 {
-		fmt.Fprintln(w.out, "3  Extra backups       None selected")
+		w.out.Option("3", fmt.Sprintf("%-19s %s", "Extra backups", "None selected"))
 	} else {
-		fmt.Fprintln(w.out, "3  Extra backups       Before each update:")
+		w.out.Option("3", fmt.Sprintf("%-19s %s", "Extra backups", "Before each update:"))
 		for _, path := range plan.Instance.Saves {
-			fmt.Fprintf(w.out, "                       %s\n", filepath.FromSlash(path))
+			fmt.Fprintf(w.out, "%-7s %-19s %s\n", "", "", filepath.FromSlash(path))
 		}
 	}
-	fmt.Fprintf(w.out, "4  Release channel     %s\n", plan.Instance.Channel)
-	fmt.Fprintln(w.out, "\nCreate configuration and update/restore shortcuts. Matching files are reused.")
-	fmt.Fprintln(w.out, "No application update starts during setup.")
-	w.out.Action("\nEnter  Set up updater    1-4  Change a setting    Q  Cancel")
-	w.out.Action("P  Change application type    D  Preserved settings details")
+	w.out.Option("4", fmt.Sprintf("%-19s %s", "Release channel", plan.Instance.Channel))
+	w.out.Option("P", "Change application type")
+	w.out.Option("D", "View preserved settings")
+	fmt.Fprintln(w.out)
+	w.out.Option("Enter", "Set up updater")
+	w.out.Option("Q", "Cancel")
 }
 
 func (w *wizard) change(plan *Plan, field string) (*Plan, error) {
