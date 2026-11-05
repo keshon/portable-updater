@@ -2,8 +2,6 @@ package app
 
 import (
 	"bytes"
-	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +14,7 @@ func TestMissingDefaultConfigStartsSetup(t *testing.T) {
 			executable := filepath.Join(t.TempDir(), location)
 			var out, stderr bytes.Buffer
 			err := run(nil, &out, &stderr, executable, strings.NewReader(""))
-			if !errors.Is(err, io.EOF) || !strings.Contains(out.String(), "first-time setup") {
+			if err != nil || !strings.Contains(out.String(), "first-time setup") {
 				t.Fatalf("expected setup, got %v; %s", err, out.String())
 			}
 		})

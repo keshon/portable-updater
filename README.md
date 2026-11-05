@@ -8,8 +8,8 @@ Portable Updater is a Windows x64 tool written in Go for portable applications, 
 
 ## Get started
 
-1. Download the Windows x64 ZIP from [Releases](https://github.com/keshon/portable-updater/releases) and extract it into a temporary folder.
-2. Double-click `portable-update.exe`. Choose your existing application folder and profile, then review its runtime and data paths before confirming.
+1. Build with `build.cmd` ([Go requirements](docs/running.md#requirements)), or extract a Windows x64 ZIP from [Releases](https://github.com/keshon/portable-updater/releases) when available.
+2. Double-click `portable-update.exe`. Choose the application folder or executable, review what was detected, then press Enter to set up. Extra backups and custom choices are under **Edit**.
 3. Close the application and double-click the new `updater-update.cmd` in its folder. Keep using your existing application launcher; `updater-rollback.cmd` restores the previous runtime after an update.
 
 Setup checks the existing runtime and portable settings. It does not move application data, overwrite existing updater files or start an update. See [setup and configuration](docs/running.md#set-up-a-container) for the review steps, custom layouts and building from source.

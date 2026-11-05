@@ -2,6 +2,7 @@
   "$schema": "../schemas/adapter.schema.json",
   "schema": 1,
   "id": "shadps4-windows-x64",
+  "display_name": "shadPS4",
   "platform": "windows",
   "architecture": "amd64",
   "executable": "shadPS4.exe",

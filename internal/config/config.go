@@ -29,6 +29,7 @@ type Adapter struct {
 	JSONSchema   string  `json:"$schema,omitempty"`
 	Schema       int     `json:"schema"`
 	ID           string  `json:"id"`
+	DisplayName  string  `json:"display_name,omitempty"`
 	Platform     string  `json:"platform"`
 	Architecture string  `json:"architecture"`
 	Executable   string  `json:"executable"`
@@ -168,15 +169,10 @@ func Load(path string) (*Config, error) {
 			return nil, e
 		}
 	}
-	for _, p := range instance.Saves {
-		target, e := files.Join(root, p)
-		if e != nil {
-			return nil, e
-		}
-		if files.Within(home, target) || files.Within(target, home) || files.Within(work, target) || files.Within(target, work) {
-			return nil, errors.New("save snapshot overlaps updater storage")
-		}
+	if e = ValidateSnapshotPaths(root, instance.Saves); e != nil {
+		return nil, e
 	}
+
 	// Overlapping preservation roots make replacement ambiguous; reject them.
 	for i, a := range adapter.Preserve {
 		if files.Within(strings.ToLower(filepath.Clean(filepath.FromSlash(a))), strings.ToLower(filepath.Clean(filepath.FromSlash(adapter.Executable)))) {

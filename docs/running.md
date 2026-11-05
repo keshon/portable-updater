@@ -17,13 +17,23 @@ The target application still has its own OS, hardware and driver requirements. C
 
 Download and extract a Windows x64 release ZIP into a temporary folder, then double-click `portable-update.exe`. The executable bundles its profiles, schemas, launcher templates and license notices.
 
-The console wizard asks for the existing container folder, application profile, runtime directory and snapshot paths. Choose the outer folder: for `F:\Projects\ai\koboldcpp\extracted`, the container is `F:\Projects\ai\koboldcpp` and the runtime is `extracted`. Runtime input accepts a relative folder or a full path inside the container. Selecting a recognized default runtime at the first prompt uses its parent container and explains the correction. An already configured container is identified without reinstalling it. It detects profiles at their example runtime paths; choose the profile and enter the relative runtime path for a custom layout. Snapshot defaults include only example paths that already exist. Review them against the application's actual user-data configuration; use comma-separated relative paths or `-` for no snapshots.
+Choose the application folder or its executable. For a supported layout with one validated match, setup goes directly to a review screen. Selecting the outer folder, the inner application-files folder or the executable resolves to the same setup. If the updater is already under a recognized container's `util/portable-update`, it skips location selection too.
 
-Before confirmation, setup checks the runtime entry point and required package/portable files and shows what it will install. It creates `util/portable-update` and both root command launchers, leaving the application and existing launch scripts in place. It does not run an update. Setup can run with only `portable-update.exe` already in `util/portable-update`. It creates missing files and reuses byte-identical bundled files and command launchers. It never overwrites a different existing file or an existing configuration. A configuration-free folder with old updater state is reported as a conflict, rather than inheriting that transaction state into a fresh setup.
+Review shows the application, resolved folders and extra backups selected before each update. Press **Enter** to create the configuration and launchers, **E** to edit choices, or **Q** to cancel. No application update starts during setup. Invalid answers can be corrected at the current screen; end of input cancels before confirmation.
 
-If the default `update.json` beside the executable is missing, launching it with no arguments opens setup, including under `util/portable-update`. An explicit missing `--manifest` or `--rollback` reports an error instead. An existing invalid configuration also reports an error rather than starting over.
+**Edit choices** provides application location, application type/files folder, extra backups, release channel and preserved-settings details. Extra backups use Add/Remove controls, accepting one file or folder at a time. Paths can be relative to the application folder or full paths inside it. They must exist when added interactively; overlapping selections are rejected. Models and game libraries should not be selected as routine extra backups.
 
-An installed updater normally runs updates directly. Use `portable-update.exe --setup` explicitly to open the wizard for another container. `--version` prints its build version.
+Default backup selections include only existing example paths. `None selected` means no extra backup copies are configured; it does not establish where the application writes all its personal data. Review the selection against the application's data configuration. The [container configuration](#container-configuration) describes the stored policy.
+
+If more than one installation matches, choose from the detected names and paths. Detection is limited to the selected location, its recognized parent relationship, supported defaults and immediate child folders; it does not search drives recursively. A custom layout can be configured through manual application selection and an application-files folder.
+
+Setup creates missing files and reuses byte-identical bundled files, including its executable already in `util/portable-update`. It never overwrites a different existing file or a configured installation. A configuration-free folder with old updater state is a conflict rather than a fresh setup. Returned errors clean up only files created by that invocation. Application data and existing application launch scripts remain in place.
+
+Launching without a default `update.json` opens setup automatically. With a valid configuration, normal execution checks for updates directly. An explicit missing `--manifest` or `--rollback`, or an invalid existing configuration, reports an error instead of starting fresh setup.
+
+`portable-update.exe --setup` opens setup explicitly. A configured installation shows its status; choose **A** to set up another application, or **Enter** to finish. `--version` prints the updater build version.
+
+Console headings/actions use teal, success green, attention amber and errors red when supported by a Windows console. Labels remain readable without color. Redirected output and log files contain plain text; `NO_COLOR=1` disables accents.
 
 ### Build from source
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/keshon/portable-updater/internal/config"
+	"github.com/keshon/portable-updater/internal/console"
 	"github.com/keshon/portable-updater/internal/platform"
 	"github.com/keshon/portable-updater/internal/setup"
 	"github.com/keshon/portable-updater/internal/updater"
@@ -74,7 +75,7 @@ func run(args []string, stdout, stderr io.Writer, executable string, input io.Re
 	defer log.Close()
 	fmt.Fprintln(log, "\nRun:", time.Now().UTC().Format(time.RFC3339))
 	project.SetOutput(log)
-	display := io.MultiWriter(stdout, log)
+	display := console.WithLog(stdout, log)
 	fmt.Fprintln(display, "Portable Updater", Version)
 	if *rollback {
 		e = project.Restore(display)

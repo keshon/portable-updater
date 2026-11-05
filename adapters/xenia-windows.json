@@ -2,6 +2,7 @@
   "$schema": "../schemas/adapter.schema.json",
   "schema": 1,
   "id": "xenia-windows-x64",
+  "display_name": "Xenia",
   "platform": "windows",
   "architecture": "amd64",
   "executable": "xenia.exe",

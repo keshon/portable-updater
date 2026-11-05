@@ -133,21 +133,10 @@ func Prepare(root, profileID, runtime string, saves []string) (*Plan, error) {
 		}
 	}
 	p.Instance.Saves = append([]string{}, saves...)
-	for _, rel := range p.Instance.Saves {
-		target, err := files.Join(root, rel)
-		if err != nil {
-			return nil, err
-		}
-		for _, reserved := range []string{"util/portable-update", "tmp/portable-update"} {
-			boundary, err := files.Join(root, reserved)
-			if err != nil {
-				return nil, err
-			}
-			if files.Within(boundary, target) || files.Within(target, boundary) {
-				return nil, errors.New("snapshot path overlaps updater storage")
-			}
-		}
+	if err = config.ValidateSnapshotPaths(root, p.Instance.Saves); err != nil {
+		return nil, err
 	}
+
 	data, err := json.MarshalIndent(p.Instance, "", "  ")
 	if err != nil {
 		return nil, err
@@ -239,6 +228,11 @@ var openSetupFile = os.OpenFile
 // Install never replaces an existing file. On error it removes only the files
 // and empty directories created by this invocation, leaving application data alone.
 func (p *Plan) Install(executable string) (err error) {
+	instanceData, err := json.MarshalIndent(p.Instance, "", "  ")
+	if err != nil {
+		return err
+	}
+	p.assets["util/portable-update/update.json"] = append(instanceData, '\n')
 	if err = p.checkDestinations(); err != nil {
 		return err
 	}

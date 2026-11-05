@@ -171,57 +171,6 @@ func TestSetupRejectsUnsafeOrIncompletePlan(t *testing.T) {
 	}
 }
 
-func TestWizardCancelAndCustomData(t *testing.T) {
-	for _, confirm := range []string{"no", "yes"} {
-		t.Run(confirm, func(t *testing.T) {
-			root, exe := fixture(t)
-			input := strings.NewReader(root + "\nduckstation\n\ndata/memcards\n" + confirm + "\n\n")
-			var output bytes.Buffer
-			if err := Wizard(input, &output, exe); err != nil {
-				t.Fatal(err)
-			}
-			_, err := os.Stat(filepath.Join(root, "util/portable-update/update.json"))
-			if confirm == "no" && !os.IsNotExist(err) {
-				t.Fatal("cancel wrote configuration")
-			}
-			if confirm == "yes" && err != nil {
-				t.Fatal(err)
-			}
-			if !strings.Contains(output.String(), "Review setup") {
-				t.Fatal("missing review")
-			}
-		})
-	}
-}
-
-func TestWizardRecognizesRuntimeFolder(t *testing.T) {
-	root, exe := fixture(t)
-	var output bytes.Buffer
-	input := filepath.Join(root, "duckstation") + "\nduckstation\n\n\nno\n"
-	if err := Wizard(strings.NewReader(input), &output, exe); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(output.String(), "Using its container: "+root) || !strings.Contains(output.String(), "Review setup") {
-		t.Fatal(output.String())
-	}
-	if _, err := os.Stat(filepath.Join(root, "util")); !os.IsNotExist(err) {
-		t.Fatal("cancel wrote files")
-	}
-}
-
-func TestWizardAcceptsFullRuntimePathAndRetriesContainerPath(t *testing.T) {
-	root, exe := fixture(t)
-	var output bytes.Buffer
-	// A container path is a common mistake at step 3; retry without restarting.
-	input := root + "\nduckstation\n" + root + "\n" + filepath.Join(root, "duckstation") + "\n\nno\n"
-	if err := Wizard(strings.NewReader(input), &output, exe); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(output.String(), "That is the container itself") || !strings.Contains(output.String(), "Review setup") {
-		t.Fatal(output.String())
-	}
-}
-
 func TestWizardExplainsAlreadyConfiguredContainer(t *testing.T) {
 	root, exe := fixture(t)
 	plan, err := Prepare(root, "duckstation", "", nil)
@@ -237,7 +186,7 @@ func TestWizardExplainsAlreadyConfiguredContainer(t *testing.T) {
 		t.Fatal(err)
 	}
 	var output bytes.Buffer
-	if err = Wizard(strings.NewReader(filepath.Join(root, "duckstation")+"\n"), &output, exe); err != nil {
+	if err = Wizard(strings.NewReader(filepath.Join(root, "duckstation")+"\n\n"), &output, exe); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(output.String(), "Already configured") || !strings.Contains(output.String(), "updater-update.cmd") {
@@ -274,8 +223,8 @@ func TestSetupFromExecutableInFinalDirectory(t *testing.T) {
 			switch mode {
 			case "cancel":
 				var output bytes.Buffer
-				err = Wizard(strings.NewReader(root+"\nduckstation\n\n\nno\n"), &output, installedExe)
-				if err != nil || !strings.Contains(output.String(), "Review setup") {
+				err = Wizard(strings.NewReader("q\n"), &output, installedExe)
+				if err != nil || !strings.Contains(output.String(), "Set up DuckStation") {
 					t.Fatalf("%v: %s", err, output.String())
 				}
 			case "failure":
@@ -330,7 +279,7 @@ func TestWizardDoesNotRetryDestinationConflictAsRuntime(t *testing.T) {
 	root, exe := fixture(t)
 	put(t, filepath.Join(root, "updater-update.cmd"), []byte("custom launcher"))
 	var output bytes.Buffer
-	err := Wizard(strings.NewReader(root+"\nduckstation\n\n"), &output, exe)
+	err := Wizard(strings.NewReader(root+"\n"), &output, exe)
 	if !errors.Is(err, ErrSetupConflict) || strings.Contains(output.String(), "Cannot use that runtime") {
 		t.Fatalf("wrong conflict handling: %v; %s", err, output.String())
 	}

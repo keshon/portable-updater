@@ -10,7 +10,7 @@ import (
 
 func (u *transaction) rollback() error {
 	if u.state.Phase != "applied" {
-		return errors.New("no applied update to roll back")
+		return errors.New("no previous update is available to restore; complete an update before using updater-rollback.cmd")
 	}
 	runtime := u.runtime()
 	previous, e := files.Join(u.root, u.state.Previous)
@@ -18,7 +18,7 @@ func (u *transaction) rollback() error {
 		return e
 	}
 	if !files.Exists(previous) {
-		return errors.New("previous runtime missing")
+		return errors.New("the previous application files are missing; restore them from a separate backup if needed")
 	}
 	if e = platform.GuardProcesses(runtime, previous); e != nil {
 		return e

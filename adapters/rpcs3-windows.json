@@ -2,6 +2,7 @@
   "$schema": "../schemas/adapter.schema.json",
   "schema": 1,
   "id": "rpcs3-windows-x64",
+  "display_name": "RPCS3",
   "platform": "windows",
   "architecture": "amd64",
   "executable": "rpcs3.exe",

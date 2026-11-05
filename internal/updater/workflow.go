@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/keshon/portable-updater/internal/console"
 	"github.com/keshon/portable-updater/internal/download"
 	"github.com/keshon/portable-updater/internal/files"
 	"github.com/keshon/portable-updater/internal/platform"
@@ -116,7 +117,7 @@ func (p *Engine) candidateMatchesInstalled(candidate string) (bool, error) {
 	return match, err
 }
 func (p *Engine) Update(ctx context.Context, display io.Writer) (resultErr error) {
-	fmt.Fprintf(display, "%s\nChecking for updates...\n", p.policy.Name)
+	console.New(display).Heading("%s\nChecking for updates...", p.policy.Name)
 	if p.state.Phase == "swapping" || p.state.Phase == "old_moved" || p.state.Phase == "rolling_back" {
 		fmt.Fprintln(display, "Recovering the interrupted update...")
 		if e := p.recover(); e != nil {
@@ -171,7 +172,7 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) (resultErr error
 		}
 		switch compareVersion(current, latest) {
 		case 0:
-			fmt.Fprintf(display, "Already current (%s).\n", currentString)
+			console.New(display).Success("Already current (%s).", currentString)
 			return nil
 		case 1:
 			fmt.Fprintf(display, "Installed version %s is newer than %s. Kept the installed runtime.\n", currentString, selected.Tag)
@@ -180,7 +181,7 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) (resultErr error
 	}
 	var receipt Receipt
 	if b, e := os.ReadFile(filepath.Join(p.home, "state/installed.json")); e == nil && json.Unmarshal(b, &receipt) == nil && receipt.Adapter == p.Adapter.ID && receipt.Tag == selected.Tag && sameRelease(receipt.Asset, selected.Asset) && receipt.ExecutableHash == currentHash {
-		fmt.Fprintf(display, "Already current (%s).\n", selected.Tag)
+		console.New(display).Success("Already current (%s).", selected.Tag)
 		return nil
 	}
 	if selected.Asset.Digest == "" && (p.Adapter.Source.Checksum != "when-published" || p.Adapter.Package == "executable-unpack") {
@@ -193,7 +194,7 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) (resultErr error
 		return e
 	}
 	if e = download.Fetch(ctx, selected.Asset, path, display); e != nil {
-		return e
+		return fmt.Errorf("could not download the update; the new package was not installed. Check the connection and run updater-update.cmd again: %w", e)
 	}
 	if e = platform.GuardProcesses(p.runtime()); e != nil {
 		return e
@@ -204,7 +205,7 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) (resultErr error
 			return e
 		}
 	}
-	fmt.Fprintln(display, "Verifying and preparing the runtime...")
+	fmt.Fprintln(display, "Verifying and preparing the application package...")
 	previousJournal := p.state
 	// Candidate validation and preservation must not consume an existing rollback.
 	// Keep the applied journal on disk until apply reaches its swap boundary.
@@ -261,17 +262,21 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) (resultErr error
 		if e = p.writeReceipt(selected, currentHash); e != nil {
 			return e
 		}
-		fmt.Fprintf(display, "Already current (%s).\n", selected.Tag)
+		console.New(display).Success("Already current (%s).", selected.Tag)
 		return nil
 	}
-	fmt.Fprintln(display, "Backing up saves and preserving settings...")
+	if len(p.policy.Saves) > 0 {
+		fmt.Fprintln(display, "Backing up configured data and preparing application files...")
+	} else {
+		fmt.Fprintln(display, "Preparing application files...")
+	}
 	if e = p.apply(false); e != nil {
 		return e
 	}
 	if e = p.writeReceipt(selected, candidateHash); e != nil {
-		fmt.Fprintln(display, "Updated successfully; installation receipt could not be written. See update.log.")
+		console.New(display).Warning("Application updated, but its release record could not be saved. See update.log.")
 	}
-	fmt.Fprintf(display, "Updated to %s. Settings and saves preserved.\n", selected.Tag)
+	console.New(display).Success("Updated to %s. Previous version available via updater-rollback.cmd.", selected.Tag)
 	return nil
 }
 func (p *Engine) Restore(display io.Writer) error {
@@ -285,13 +290,13 @@ func (p *Engine) Restore(display io.Writer) error {
 		return e
 	}
 	if p.Adapter.Version.Kind == "artifact-sha256" {
-		fmt.Fprintln(display, "Restored the previous runtime. External saves kept at their current progress.")
+		console.New(display).Success("Previous application restored. External data kept at its current state.")
 		return nil
 	}
 	value, e := executableVersion(filepath.Join(p.runtime(), p.policy.Executable))
 	if e != nil {
 		return e
 	}
-	fmt.Fprintf(display, "Restored %s. External saves kept at their current progress.\n", value)
+	console.New(display).Success("Restored %s. External data kept at its current state.", value)
 	return nil
 }

@@ -2,6 +2,7 @@
   "$schema": "../schemas/adapter.schema.json",
   "schema": 1,
   "id": "dolphin-windows-x64",
+  "display_name": "Dolphin",
   "platform": "windows",
   "architecture": "amd64",
   "executable": "Dolphin.exe",

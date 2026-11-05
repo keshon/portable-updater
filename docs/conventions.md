@@ -39,7 +39,7 @@ For an application using an existing provider, package format and version policy
 
 1. Add an adapter under `adapters` and a matching container configuration under `examples`. Follow the existing `<application>-windows.json` and `<application>.json` naming practice.
 2. Select the exact portable Windows x64 artifact. An asset expression must distinguish architectures, installers and alternate builds. Use paths supported by the upstream package and actual portable installation.
-3. Identify runtime-local settings for `preserve`, package contents for `required_package` and pre-existing portable settings for `required_state`. Snapshot user-data paths belong in the container example's `saves` list.
+3. Set a friendly `display_name` in the adapter; custom adapters without it fall back to their identifier. Identify runtime-local settings for `preserve`, package contents for `required_package` and pre-existing portable settings for `required_state`. Snapshot user-data paths belong in the container example's `saves` list.
 4. Use the existing checksum policy unless the provider supplies no publisher digest. Explain any `when-published` exception in review; a locally computed hash is not publisher verification.
 5. Perform the automated and disposable-container checks below, then add the adapter/example links to the README catalog. Put application-specific setup in the operating guide.
 
@@ -80,7 +80,7 @@ Ordinary tests use fixtures. To resolve the official RPCS3 and Dolphin feeds wit
 
 ## Verification for changes
 
-Automated tests cover download retry/resume, ranges and digests, release/version decisions, path and archive boundaries, locking, preservation, rollback and interrupted swaps. Executable-unpack tests substitute a runner with fixture arguments; they do not download or execute a live release in CI.
+Automated tests cover the setup review/edit flow, ambiguous and custom layouts, cancellation, plain/color output separation, download retry/resume, ranges and digests, release/version decisions, path and archive boundaries, locking, preservation, rollback and interrupted swaps. Executable-unpack tests substitute a runner with fixture arguments; they do not download or execute a live release in CI.
 
 For an adapter or package-format change, also use a disposable copy of a representative container:
 

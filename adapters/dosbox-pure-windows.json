@@ -2,6 +2,7 @@
   "$schema": "../schemas/adapter.schema.json",
   "schema": 1,
   "id": "dosbox-pure-unleashed-windows-x64",
+  "display_name": "DOSBox Pure Unleashed",
   "platform": "windows",
   "architecture": "amd64",
   "executable": "DOSBoxPure.exe",

@@ -209,7 +209,7 @@ func Fetch(ctx context.Context, asset release.Asset, destination string, progres
 	// Remove only our flat numeric range files after the assembled hash matches.
 	// A foreign file or link stops cleanup; no recursive deletion is performed.
 	if e = cleanChunkFiles(destination, dir); e != nil {
-		fmt.Fprintln(progress, "Download verified; temporary range files retained.")
+		fmt.Fprintln(progress, "Download verified.")
 	}
 	return nil
 }
