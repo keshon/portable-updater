@@ -49,3 +49,13 @@ func TestExplicitOperationsDoNotFallBackToSetup(t *testing.T) {
 		})
 	}
 }
+
+func TestSelfUpdateRejectsMixedOperationsAndStandaloneWithoutSetup(t *testing.T) {
+	for _, args := range [][]string{{"--self-update", "--setup"}, {"--self-update", "--rollback"}, {"--self-update", "--version"}, {"--self-update"}} {
+		var out, stderr bytes.Buffer
+		err := run(args, &out, &stderr, filepath.Join(t.TempDir(), "portable-update.exe"), strings.NewReader(""))
+		if err == nil || strings.Contains(out.String(), "first-time setup") {
+			t.Fatalf("unexpected result for %v: %v; %s", args, err, out.String())
+		}
+	}
+}

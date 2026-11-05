@@ -4,6 +4,8 @@ import (
 	"archive/zip"
 	"crypto/sha256"
 	"fmt"
+	bundle "github.com/keshon/portable-updater"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,7 +46,20 @@ func TestPackageIncludesExecutableLicensesAndMatchingChecksum(t *testing.T) {
 			t.Fatalf("missing %s", name)
 		}
 	}
-	if len(seen) != 4 {
+	wantCount := 4
+	for _, pattern := range []string{"adapters/*.json", "schemas/*.json"} {
+		names, err := fs.Glob(bundle.Files, pattern)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantCount += len(names)
+		for _, name := range names {
+			if !seen[name] {
+				t.Fatalf("missing bundled definition %s", name)
+			}
+		}
+	}
+	if len(seen) != wantCount {
 		t.Fatal("unexpected distribution contents")
 	}
 	if err := pack("v0.1.0", binary, out); err == nil {

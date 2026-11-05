@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="576" viewBox="0 0 1120 576" role="img" aria-labelledby="title desc">
+  <title id="title">Update the application. Keep your portable setup.</title>
+  <desc id="desc">Official releases are downloaded and validated by Portable Updater inside an existing portable folder. Only the application runtime is replaced. The previous runtime is retained for rollback. Your launcher, external data and configured runtime settings are kept.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 9 5 1 9" fill="none" stroke="#edb768" stroke-width="1.6" stroke-linejoin="round"/></marker>
+    <marker id="subtle-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1 9 5 1 9" fill="none" stroke="#829d9f" stroke-width="1.6"/></marker>
+    <style>
+      text{font-family:Segoe UI,Arial,sans-serif;fill:#e8efeb}
+      .muted{fill:#9eb3b4;font-size:15px}.label{font-size:12px;font-weight:700;letter-spacing:1.8px}.name{font-size:21px;font-weight:600}.body{font-size:15px}.mono{font-family:Consolas,monospace;font-size:14px}
+    </style>
+  </defs>
+  <rect width="1120" height="576" rx="20" fill="#101f24"/>
+  <text x="40" y="49" class="label" style="fill:#87cabe">PORTABLE UPDATER</text>
+  <text x="40" y="91" font-size="31" font-weight="600">Update the application. Keep your portable setup.</text>
+
+  <!-- Distribution is outside the user's container. -->
+  <rect x="40" y="206" width="214" height="154" rx="12" fill="#192d33" stroke="#385055"/>
+  <path d="M64 239h22v25H64z M69 234h22v25" fill="none" stroke="#9eb3b4" stroke-width="1.6"/>
+  <text x="64" y="297" class="name">Official releases</text>
+  <text x="64" y="325" class="muted">GitHub or a release feed</text>
+
+  <!-- Everything on the right belongs to one independent container. -->
+  <rect x="324" y="135" width="756" height="414" rx="16" fill="#14262c" stroke="#416066"/>
+  <path d="M347 161h15l5 6h24v19h-44z" fill="none" stroke="#87cabe" stroke-width="1.5" stroke-linejoin="round"/>
+  <text x="403" y="182" font-size="18" font-weight="600">Your portable folder</text>
+  <text x="1056" y="181" text-anchor="end" class="mono" style="fill:#9eb3b4">MyApp/</text>
+  <path d="M254 280H344" fill="none" stroke="#edb768" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="348" y="211" width="260" height="149" rx="11" fill="#20393e" stroke="#87cabe"/>
+  <text x="369" y="243" class="label" style="fill:#87cabe">THE UPDATER</text>
+  <text x="369" y="277" class="name">Download · Validate</text>
+  <text x="369" y="304" class="body">Apply your preservation rules</text>
+  <text x="369" y="336" class="mono" style="fill:#9eb3b4">util/portable-update/</text>
+
+  <text x="688" y="265" text-anchor="middle" class="label" style="fill:#edb768">REPLACE</text>
+  <path d="M608 284H768" fill="none" stroke="#edb768" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="784" y="211" width="272" height="108" rx="11" fill="#342f27" stroke="#edb768"/>
+  <text x="805" y="244" class="label" style="fill:#edb768">APPLICATION RUNTIME</text>
+  <text x="805" y="275" class="name">New application files</text>
+  <text x="805" y="299" class="muted">Emulator, AI tool or portable app</text>
+
+  <path d="M920 319v19" stroke="#829d9f" stroke-width="1.5" marker-end="url(#subtle-arrow)"/>
+  <rect x="784" y="347" width="272" height="46" rx="9" fill="#192d33" stroke="#385055"/>
+  <text x="920" y="375" text-anchor="middle" class="body">Previous runtime → rollback</text>
+
+  <path d="M348 417H1056" stroke="#345057"/>
+  <text x="369" y="447" class="label" style="fill:#87cabe">RETAINED DURING UPDATES</text>
+  <text x="369" y="484" class="body">Launch scripts</text>
+  <text x="603" y="484" class="body">External user data</text>
+  <text x="817" y="484" class="body">Configured settings</text>
+  <text x="369" y="519" class="muted">Data locations and preservation paths must already be configured.</text>
+</svg>

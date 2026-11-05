@@ -121,6 +121,22 @@ util\portable-update\portable-update.exe --rollback
 
 `--manifest` selects another configuration file; it must still reside under a container's `util/portable-update` directory. Without that flag, the updater reads `update.json` beside its executable.
 
+## Update Portable Updater itself
+
+From an installed container's `util/portable-update` folder, run:
+
+```cmd
+portable-update.exe --self-update
+```
+
+This updates only that copy of Portable Updater from the latest published stable release in `keshon/portable-updater`. It does not update the application or search for other containers. A stable installed version is never downgraded. Development builds can switch to the published stable version. Before the first stable release is published, the command reports that no release is available and keeps the installed copy.
+
+The archive requires GitHub's published SHA-256. The downloaded executable is checked for Windows x64, its Go entry point and the expected version. Existing bundled adapters, schemas and license notices are refreshed only if they still match the current executable's bundled versions. Edited definitions, `update.json`, root launchers, application files, saves and update history are kept. Missing optional definitions are not introduced.
+
+Windows prevents replacing a running executable. After verification, the command hands off to a temporary helper and exits; keep the console open until the helper reports completion. A busy updater is not terminated. The helper uses the same container lock as ordinary updates. Its result and previous updater files are retained under `tmp/portable-update/self-update/<timestamp>/result.log` and `previous/` respectively. A returned replacement error attempts to restore every displaced file.
+
+If interrupted during replacement, close all updater processes and inspect that directory before retrying. Back up the current updater home, then restore files from `previous/` to the matching paths in `util/portable-update`. Keep the existing configuration and state. Application rollback commands restore application runtimes, not the updater executable.
+
 ## Restore the previous runtime
 
 Close the application and double-click `updater-rollback.cmd`. Rollback restores the previous runtime and its runtime-local settings from the update moment. External user data remains at its current state. The displaced runtime is retained under `tmp/portable-update` as a rejected copy.
@@ -165,4 +181,4 @@ Archive packages use ZIP/7z extraction. Repository adapters may declare required
 | Recovery reports an ambiguous layout | Stop and preserve the journal, log and all retained runtime folders. Compare their paths and contents before any manual restoration; deleting the journal does not resolve which copy is valid. |
 | Rollback reports no applied update or a missing previous runtime | Inspect the journal and retained folders. A first run, completed rollback or removed temporary workspace may leave no automatic rollback available. Use a separate backup if needed. |
 
-Updater self-updates and whole-collection update commands are not implemented. Recovery handles recognized directory states, not disk corruption or guaranteed recovery from every power-loss condition.
+Whole-collection update commands are not implemented. Recovery handles recognized directory states, not disk corruption or guaranteed recovery from every power-loss condition.

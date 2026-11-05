@@ -8,10 +8,12 @@ import (
 	"debug/buildinfo"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -86,7 +88,15 @@ func pack(version, binary, out string) (err error) {
 	}()
 	w := zip.NewWriter(f)
 	contents := map[string][]byte{"portable-update.exe": data, "START-HERE.txt": []byte("Portable Updater " + version + "\r\n\r\nExtract this ZIP into a temporary folder, then double-click portable-update.exe.\r\nThe setup wizard connects the updater to an existing portable application.\r\nReview the runtime and data paths before confirming. No application update runs during setup.\r\n\r\nAfter setup, use updater-update.cmd and updater-rollback.cmd in the application folder.\r\nDocumentation: https://github.com/keshon/portable-updater#readme\r\n")}
-	for _, name := range []string{"LICENSE", "THIRD-PARTY-LICENSES.txt"} {
+	assetNames := []string{"LICENSE", "THIRD-PARTY-LICENSES.txt"}
+	for _, pattern := range []string{"adapters/*.json", "schemas/*.json"} {
+		names, e := fs.Glob(bundle.Files, pattern)
+		if e != nil {
+			return e
+		}
+		assetNames = append(assetNames, names...)
+	}
+	for _, name := range assetNames {
 		b, e := bundle.Files.ReadFile(name)
 		if e != nil {
 			w.Close()
@@ -95,7 +105,12 @@ func pack(version, binary, out string) (err error) {
 		}
 		contents[name] = b
 	}
-	for _, entry := range []string{"portable-update.exe", "START-HERE.txt", "LICENSE", "THIRD-PARTY-LICENSES.txt"} {
+	entries := make([]string, 0, len(contents))
+	for name := range contents {
+		entries = append(entries, name)
+	}
+	sort.Strings(entries)
+	for _, entry := range entries {
 		header := &zip.FileHeader{Name: entry, Method: zip.Deflate}
 		header.SetMode(0644)
 		dest, e := w.CreateHeader(header)
@@ -125,7 +140,7 @@ func pack(version, binary, out string) (err error) {
 	if err = os.WriteFile(filepath.Join(out, "SHA256SUMS.txt"), []byte(fmt.Sprintf("%x  %s\n", digest, name)), 0644); err != nil {
 		return err
 	}
-	notes := "Portable Updater " + version + " for Windows x64.\n\nDownload and extract the ZIP, then double-click `portable-update.exe` to configure an existing portable application. All profiles and setup files are bundled; no Go, Python, PowerShell or 7-Zip installation is needed to run the updater.\n\nAfter setup, use the update and rollback commands in the application folder. See [setup and operating instructions](https://github.com/keshon/portable-updater/blob/main/docs/running.md) for data preservation and recovery behavior.\n\n`SHA256SUMS.txt` contains the archive checksum. Target applications retain their own system requirements.\n"
+	notes := "Portable application updates, rollback and updater self-update for Windows x64.\n"
 	if err = os.WriteFile(filepath.Join(out, "RELEASE-NOTES.md"), []byte(notes), 0644); err != nil {
 		return err
 	}

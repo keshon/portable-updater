@@ -13,6 +13,7 @@ import (
 	"github.com/keshon/portable-updater/internal/config"
 	"github.com/keshon/portable-updater/internal/console"
 	"github.com/keshon/portable-updater/internal/platform"
+	"github.com/keshon/portable-updater/internal/selfupdate"
 	"github.com/keshon/portable-updater/internal/setup"
 	"github.com/keshon/portable-updater/internal/updater"
 )
@@ -20,6 +21,9 @@ import (
 var Version = "dev"
 
 func Run(args []string, stdout, stderr io.Writer) error {
+	if len(args) == 2 && args[0] == "--internal-self-update" {
+		return selfupdate.Apply(args[1], stdout)
+	}
 	executable, e := os.Executable()
 	if e != nil {
 		return e
@@ -34,15 +38,32 @@ func run(args []string, stdout, stderr io.Writer, executable string, input io.Re
 	rollback := flags.Bool("rollback", false, "restore previous runtime")
 	setupRequested := flags.Bool("setup", false, "configure an existing portable application")
 	versionRequested := flags.Bool("version", false, "print updater version")
+	selfRequested := flags.Bool("self-update", false, "update this installed copy of Portable Updater")
 	if e := flags.Parse(args); e != nil {
 		return e
 	}
 	if flags.NArg() != 0 {
 		return fmt.Errorf("no command is required: run the program directly")
 	}
+	if *selfRequested {
+		conflict := false
+		flags.Visit(func(f *flag.Flag) {
+			if f.Name != "self-update" {
+				conflict = true
+			}
+		})
+		if conflict {
+			return fmt.Errorf("--self-update must be used on its own")
+		}
+	}
 	if *versionRequested {
 		fmt.Fprintln(stdout, "Portable Updater", Version)
 		return nil
+	}
+	if *selfRequested {
+		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+		defer cancel()
+		return selfupdate.Start(ctx, executable, Version, stdout)
 	}
 	manifestProvided := false
 	flags.Visit(func(f *flag.Flag) {

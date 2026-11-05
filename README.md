@@ -1,31 +1,26 @@
-![Portable Updater - Keep your portable setup. Update what runs it.](docs/images/readme-banner.png)
+![Portable Updater](docs/images/readme-banner.png)
 
 # Portable Updater
 
-Keep the folders and launchers you already use. Update the application inside them, preserve configured settings and saves, and keep the previous runtime available for rollback.
+I built Portable Updater to maintain my collection of portable games, emulators and local AI tools. I wanted a consistent way to update application files without rearranging each folder or losing its settings and saves.
 
-Portable Updater is a Windows x64 tool written in Go for portable applications, emulators and local AI tools. It downloads official packages using reusable application profiles. No installed Go, Python, PowerShell or 7-Zip is needed to run it.
+It's a Windows x64 command-line tool written in Go. JSON adapters describe where to download official packages and which files to preserve. The previous runtime is retained for rollback. The executable runs without an installed Go, Python, PowerShell or 7-Zip.
 
 ## Get started
 
-1. Build with `build.cmd` ([Go requirements](docs/running.md#requirements)), or extract a Windows x64 ZIP from [Releases](https://github.com/keshon/portable-updater/releases) when available.
+1. Build with `build.cmd` ([Go requirements](docs/running.md#requirements)), or extract a Windows x64 ZIP from [Releases](https://github.com/keshon/portable-updater/releases).
 2. Double-click `portable-update.exe`. Choose the application folder or executable, review what was detected, then press Enter to set up. Numbered settings on the review screen can be changed directly.
-3. Close the application and double-click the new `updater-update.cmd` in its folder. Keep using your existing application launcher; `updater-rollback.cmd` restores the previous runtime after an update.
+3. Close the application and double-click `updater-update.cmd` in its folder. The existing application launcher stays in place; `updater-rollback.cmd` restores the previous runtime after an update.
 
 Setup checks the existing runtime and portable settings. It does not move application data, overwrite existing updater files or start an update. See [setup and configuration](docs/running.md#set-up-a-container) for the review steps, custom layouts and building from source.
 
-## Console output
+## How it works
 
-The application uses an ordinary console. This is captured output from a disposable DuckStation check:
+![Official releases flow through Portable Updater into the application runtime. The previous runtime is retained for rollback; existing launchers, external data and configured settings are kept.](docs/images/how-it-works.svg)
 
-```text
-Portable Updater v0.1.0
-Disposable DuckStation updater validation
-Checking for updates...
-Already current (latest).
-```
+Each portable folder has its own updater and configuration. Application launchers are separate from the update and rollback commands. A console wizard handles first-time setup.
 
-Update and rollback are run through the container's command files. A console wizard handles first-time setup when `update.json` is absent.
+To update an installed copy of Portable Updater itself, run `portable-update.exe --self-update` from its `util/portable-update` folder. See [self-update](docs/running.md#update-portable-updater-itself) for scope and recovery.
 
 ## Included adapters
 
@@ -57,14 +52,14 @@ The shadPS4 adapter updates the emulator core in the configured version director
   </tr>
 </table>
 
-These PCSX2 and RPCS3 containers use separate runtime, data and utility directories. See the [operating guide](docs/running.md#storage-and-cleanup) for updater storage and cleanup. Explorer hides file extensions in these screenshots. The PCSX2 folder also includes a Linux runtime; the updater supports Windows only.
+These are two folders from my game collection, with separate runtime, data and utility directories. See the [operating guide](docs/running.md#storage-and-cleanup) for updater storage and cleanup. Explorer hides file extensions in these screenshots. The PCSX2 folder also includes a Linux runtime; the updater supports Windows only.
 
 ## Limits
 
 - Windows x64 only; target applications retain their own OS, hardware and driver requirements.
 - Close the application before updating. Verify it works with its data after changing versions; package validation does not establish compatibility.
 - Rollback needs its retained previous runtime. External user data keeps its current state.
-- Updater self-updates, automatic retention cleanup and a whole-collection update command are not implemented.
+- Self-update uses published stable Portable Updater releases. Automatic retention cleanup and a whole-collection update command are not implemented.
 
 ## Documentation
 
@@ -74,4 +69,4 @@ These PCSX2 and RPCS3 containers use separate runtime, data and utility director
 
 ## License
 
-[MIT](LICENSE), copyright 2026 Innokentiy Sokolov. Dependency license notices are in [THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt).
+[MIT](LICENSE), copyright 2026 Innokentiy Sokolov.
