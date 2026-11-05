@@ -48,6 +48,10 @@ func fetchChunk(ctx context.Context, client *http.Client, asset release.Asset, r
 	var last error
 	for attempt := 0; offset <= r.end && attempt < 3; attempt++ {
 		data, err := readRangeWithClient(ctx, client, asset, offset, r.end)
+		if int64(len(data)) > r.end-offset+1 {
+			file.Close()
+			return errors.New("download response exceeds the requested range")
+		}
 		if len(data) > 0 {
 			n, e := file.Write(data)
 			if e != nil {
@@ -73,7 +77,7 @@ func fetchChunk(ctx context.Context, client *http.Client, asset release.Asset, r
 		return e
 	}
 	if offset != r.end+1 {
-		return fmt.Errorf("download stopped after retries; current emulator kept: %w", last)
+		return fmt.Errorf("download stopped after retries; current runtime kept: %w", last)
 	}
 	return os.Rename(partial, complete)
 }
@@ -194,7 +198,7 @@ func Fetch(ctx context.Context, asset release.Asset, destination string, progres
 	if asset.Digest != "" && digest != asset.Digest {
 		_ = os.Rename(partial, partial+".rejected-"+files.Stamp())
 		_ = os.Rename(dir, dir+".rejected-"+files.Stamp())
-		return errors.New("download checksum mismatch; current emulator kept")
+		return errors.New("download checksum mismatch; current runtime kept")
 	}
 	if e = os.Rename(partial, destination); e != nil {
 		return e

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Portable updater emulator adapter",
+  "title": "Portable updater application adapter",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -36,6 +36,14 @@
       "type": "string",
       "minLength": 1
     },
+    "package": {
+      "type": "string",
+      "enum": [
+        "archive",
+        "executable-unpack"
+      ],
+      "default": "archive"
+    },
     "version": {
       "type": "object",
       "additionalProperties": false,
@@ -62,8 +70,7 @@
           "enum": [
             "github",
             "forgejo",
-            "rpcs3",
-            "dolphin"
+            "json-feed"
           ]
         },
         "repository": {
@@ -84,8 +91,161 @@
             "required",
             "when-published"
           ]
+        },
+        "feed": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "channels",
+            "version",
+            "asset",
+            "url",
+            "allowed_download_prefixes"
+          ],
+          "properties": {
+            "channels": {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 3,
+              "additionalProperties": false,
+              "properties": {
+                "stable": {
+                  "type": "string",
+                  "pattern": "^https://",
+                  "maxLength": 4096
+                },
+                "latest": {
+                  "type": "string",
+                  "pattern": "^https://",
+                  "maxLength": 4096
+                },
+                "nightly": {
+                  "type": "string",
+                  "pattern": "^https://",
+                  "maxLength": 4096
+                }
+              }
+            },
+            "version": {
+              "type": "string",
+              "pattern": "^/(?:[^~]|~[01])*$"
+            },
+            "updated_at": {
+              "type": "string",
+              "pattern": "^/(?:[^~]|~[01])*$"
+            },
+            "asset": {
+              "type": "string",
+              "pattern": "^/(?:[^~]|~[01])*$"
+            },
+            "url": {
+              "type": "string",
+              "pattern": "^/(?:[^~]|~[01])*$"
+            },
+            "size": {
+              "type": "string",
+              "pattern": "^/(?:[^~]|~[01])*$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^/(?:[^~]|~[01])*$"
+            },
+            "match": {
+              "type": "object",
+              "maxProperties": 16,
+              "propertyNames": {
+                "type": "string",
+                "pattern": "^/(?:[^~]|~[01])*$"
+              },
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "size_from_head": {
+              "type": "boolean"
+            },
+            "allowed_download_prefixes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^https://[^?#]+/$"
+              }
+            }
+          },
+          "oneOf": [
+            {
+              "required": [
+                "size"
+              ],
+              "properties": {
+                "size_from_head": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "required": [
+                "size_from_head"
+              ],
+              "properties": {
+                "size_from_head": {
+                  "const": true
+                }
+              },
+              "not": {
+                "required": [
+                  "size"
+                ]
+              }
+            }
+          ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "provider": {
+                "const": "json-feed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "feed"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "repository"
+                  ]
+                },
+                {
+                  "required": [
+                    "host"
+                  ]
+                },
+                {
+                  "required": [
+                    "asset_pattern"
+                  ]
+                }
+              ]
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "feed"
+              ]
+            }
+          }
+        }
+      ]
     },
     "preserve": {
       "type": "array",
@@ -110,6 +270,50 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "unpack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arguments"
+      ],
+      "properties": {
+        "arguments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        }
+      }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "package"
+        ],
+        "properties": {
+          "package": {
+            "const": "executable-unpack"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "unpack"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "unpack"
+          ]
+        }
+      }
+    }
+  ]
 }

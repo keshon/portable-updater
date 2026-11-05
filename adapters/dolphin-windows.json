@@ -9,8 +9,26 @@
     "kind": "artifact-sha256"
   },
   "source": {
-    "provider": "dolphin",
-    "checksum": "when-published"
+    "provider": "json-feed",
+    "checksum": "when-published",
+    "feed": {
+      "channels": {
+        "stable": "https://dolphin-emu.org/update/latest/beta",
+        "latest": "https://dolphin-emu.org/update/latest/beta",
+        "nightly": "https://dolphin-emu.org/update/latest/dev"
+      },
+      "version": "/shortrev",
+      "updated_at": "/hash",
+      "asset": "/artifacts",
+      "match": {
+        "/system": "Windows x64"
+      },
+      "url": "/url",
+      "size_from_head": true,
+      "allowed_download_prefixes": [
+        "https://dl.dolphin-emu.org/"
+      ]
+    }
   },
   "preserve": [
     "portable.txt",

@@ -9,7 +9,22 @@
     "kind": "artifact-sha256"
   },
   "source": {
-    "provider": "rpcs3"
+    "provider": "json-feed",
+    "feed": {
+      "channels": {
+        "stable": "https://update.rpcs3.net/?api=v3&os_type=windows&os_arch=x64&os_version={os_version}",
+        "latest": "https://update.rpcs3.net/?api=v3&os_type=windows&os_arch=x64&os_version={os_version}",
+        "nightly": "https://update.rpcs3.net/?api=v3&os_type=windows&os_arch=x64&os_version={os_version}"
+      },
+      "version": "/latest_build/version",
+      "asset": "/latest_build/windows",
+      "url": "/download",
+      "size": "/size",
+      "sha256": "/checksum",
+      "allowed_download_prefixes": [
+        "https://github.com/RPCS3/rpcs3-binaries-win/releases/download/"
+      ]
+    }
   },
   "preserve": [
     "config",

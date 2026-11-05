@@ -49,7 +49,7 @@ func (u *transaction) apply(skipSnapshot bool) error {
 			total += n
 		}
 		if total > 2<<30 {
-			return errors.New("save snapshot exceeds 2 GiB; current emulator kept. Review snapshot paths in util/portable-update/update.json")
+			return errors.New("save snapshot exceeds 2 GiB; current runtime kept. Review snapshot paths in util/portable-update/update.json")
 		}
 		u.state.Snapshot = "tmp/portable-update/snapshots/" + id
 		for _, r := range u.policy.Saves {
@@ -94,6 +94,15 @@ func (u *transaction) apply(skipSnapshot bool) error {
 			if e = files.CopyTree(src, dst); e != nil {
 				return e
 			}
+		}
+	}
+	for _, rel := range append(append([]string{u.policy.Executable}, u.policy.RequiredPackage...), u.policy.RequiredState...) {
+		path, err := files.Join(stage, rel)
+		if err != nil {
+			return err
+		}
+		if !files.Exists(path) {
+			return fmt.Errorf("candidate is missing required file after settings preservation: %s", rel)
 		}
 	}
 	if e = platform.GuardProcesses(runtime, stage); e != nil {

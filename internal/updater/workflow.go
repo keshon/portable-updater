@@ -115,7 +115,7 @@ func (p *Engine) candidateMatchesInstalled(candidate string) (bool, error) {
 	})
 	return match, err
 }
-func (p *Engine) Update(ctx context.Context, display io.Writer) error {
+func (p *Engine) Update(ctx context.Context, display io.Writer) (resultErr error) {
 	fmt.Fprintf(display, "%s\nChecking for updates...\n", p.policy.Name)
 	if p.state.Phase == "swapping" || p.state.Phase == "old_moved" || p.state.Phase == "rolling_back" {
 		fmt.Fprintln(display, "Recovering the interrupted update...")
@@ -132,7 +132,7 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) error {
 			return e
 		}
 		if !files.Exists(target) {
-			return fmt.Errorf("required portable setting is missing: %s; current emulator kept", r)
+			return fmt.Errorf("required portable setting is missing: %s; current runtime kept", r)
 		}
 	}
 	executable := filepath.Join(p.runtime(), p.policy.Executable)
@@ -174,7 +174,7 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) error {
 			fmt.Fprintf(display, "Already current (%s).\n", currentString)
 			return nil
 		case 1:
-			fmt.Fprintf(display, "Installed version %s is newer than %s. Kept the installed emulator.\n", currentString, selected.Tag)
+			fmt.Fprintf(display, "Installed version %s is newer than %s. Kept the installed runtime.\n", currentString, selected.Tag)
 			return nil
 		}
 	}
@@ -182,6 +182,9 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) error {
 	if b, e := os.ReadFile(filepath.Join(p.home, "state/installed.json")); e == nil && json.Unmarshal(b, &receipt) == nil && receipt.Adapter == p.Adapter.ID && receipt.Tag == selected.Tag && sameRelease(receipt.Asset, selected.Asset) && receipt.ExecutableHash == currentHash {
 		fmt.Fprintf(display, "Already current (%s).\n", selected.Tag)
 		return nil
+	}
+	if selected.Asset.Digest == "" && (p.Adapter.Source.Checksum != "when-published" || p.Adapter.Package == "executable-unpack") {
+		return errors.New("checksum policy requires a published release digest; current runtime kept")
 	}
 	fmt.Fprintf(display, "Updating %s -> %s (%s).\n", currentString, selected.Tag, p.Instance.Channel)
 	fmt.Fprintf(p.output(), "Integrity policy: %s; published digest: %s\n", p.Adapter.Source.Checksum, selected.Asset.Digest)
@@ -201,9 +204,32 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) error {
 			return e
 		}
 	}
-	fmt.Fprintln(display, "Verifying and preparing the emulator...")
+	fmt.Fprintln(display, "Verifying and preparing the runtime...")
 	previousJournal := p.state
-	if e = p.stage(path); e != nil {
+	// Candidate validation and preservation must not consume an existing rollback.
+	// Keep the applied journal on disk until apply reaches its swap boundary.
+	defer func() {
+		if resultErr == nil || previousJournal.Phase != "applied" || p.state.Phase != "staged" {
+			return
+		}
+		hash, err := files.Digest(executable)
+		if err != nil || hash != currentHash {
+			return
+		}
+		previous, err := files.Join(p.root, previousJournal.Previous)
+		if err != nil || !files.Exists(previous) {
+			return
+		}
+		p.state = previousJournal
+		if err = p.save(); err != nil {
+			resultErr = fmt.Errorf("%w; could not restore prior rollback journal: %v", resultErr, err)
+		}
+	}()
+	path, e = p.preparePackage(ctx, path, latest)
+	if e != nil {
+		return e
+	}
+	if e = p.stageCandidate(path, false); e != nil {
 		return e
 	}
 	candidate, e := files.Join(p.root, p.state.Stage)
@@ -249,7 +275,7 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) error {
 	return nil
 }
 func (p *Engine) Restore(display io.Writer) error {
-	fmt.Fprintf(display, "%s\nRestoring the previous emulator...\n", p.policy.Name)
+	fmt.Fprintf(display, "%s\nRestoring the previous runtime...\n", p.policy.Name)
 	if p.state.Phase == "swapping" || p.state.Phase == "old_moved" || p.state.Phase == "rolling_back" {
 		if e := p.recover(); e != nil {
 			return e
@@ -259,7 +285,7 @@ func (p *Engine) Restore(display io.Writer) error {
 		return e
 	}
 	if p.Adapter.Version.Kind == "artifact-sha256" {
-		fmt.Fprintln(display, "Restored the previous emulator. External saves kept at their current progress.")
+		fmt.Fprintln(display, "Restored the previous runtime. External saves kept at their current progress.")
 		return nil
 	}
 	value, e := executableVersion(filepath.Join(p.runtime(), p.policy.Executable))

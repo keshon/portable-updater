@@ -2,17 +2,22 @@ package app
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/keshon/portable-updater/internal/config"
 	"github.com/keshon/portable-updater/internal/platform"
+	"github.com/keshon/portable-updater/internal/setup"
 	"github.com/keshon/portable-updater/internal/updater"
 )
+
+var Version = "dev"
 
 func Run(args []string, stdout, stderr io.Writer) error {
 	executable, e := os.Executable()
@@ -22,12 +27,30 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	flags := flag.NewFlagSet("portable-update", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	manifest := flags.String("manifest", filepath.Join(filepath.Dir(executable), "update.json"), "container configuration")
-	rollback := flags.Bool("rollback", false, "restore previous emulator")
+	rollback := flags.Bool("rollback", false, "restore previous runtime")
+	setupRequested := flags.Bool("setup", false, "configure an existing portable application")
+	versionRequested := flags.Bool("version", false, "print updater version")
 	if e = flags.Parse(args); e != nil {
 		return e
 	}
 	if flags.NArg() != 0 {
 		return fmt.Errorf("no command is required: run the program directly")
+	}
+	if *versionRequested {
+		fmt.Fprintln(stdout, "Portable Updater", Version)
+		return nil
+	}
+	manifestProvided := false
+	flags.Visit(func(f *flag.Flag) {
+		if f.Name == "manifest" {
+			manifestProvided = true
+		}
+	})
+	_, manifestError := os.Stat(*manifest)
+	home := filepath.Dir(executable)
+	standalone := !(strings.EqualFold(filepath.Base(home), "portable-update") && strings.EqualFold(filepath.Base(filepath.Dir(home)), "util"))
+	if *setupRequested || (!*rollback && !manifestProvided && standalone && errors.Is(manifestError, os.ErrNotExist)) {
+		return setup.Wizard(os.Stdin, stdout, executable)
 	}
 	configuration, e := config.Load(*manifest)
 	if e != nil {
@@ -51,6 +74,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	fmt.Fprintln(log, "\nRun:", time.Now().UTC().Format(time.RFC3339))
 	project.SetOutput(log)
 	display := io.MultiWriter(stdout, log)
+	fmt.Fprintln(display, "Portable Updater", Version)
 	if *rollback {
 		e = project.Restore(display)
 	} else {

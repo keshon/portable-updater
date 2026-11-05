@@ -1,14 +1,31 @@
+![Portable Updater - Keep your portable setup. Update what runs it.](docs/images/readme-banner.png)
+
 # Portable Updater
 
-A Windows x64 updater for emulators in portable game folders. It finds an official release, downloads its portable package, preserves configured settings and saves, and retains the previous runtime for rollback.
+Keep the folders and launchers you already use. Update the application inside them, preserve configured settings and saves, and keep the previous runtime available for rollback.
 
-Double-click `updater-update.cmd` to update or `updater-rollback.cmd` to restore the previous runtime. Running the updater needs no installed Go, Python, PowerShell or 7-Zip.
+Portable Updater is a Windows x64 tool written in Go for portable applications, emulators and local AI tools. It downloads official packages using reusable application profiles. No installed Go, Python, PowerShell or 7-Zip is needed to run it.
+
+## Get started
+
+1. Download the Windows x64 ZIP from [Releases](https://github.com/keshon/portable-updater/releases) and extract it into a temporary folder.
+2. Double-click `portable-update.exe`. Choose your existing application folder and profile, then review its runtime and data paths before confirming.
+3. Close the application and double-click the new `updater-update.cmd` in its folder. Keep using your existing application launcher; `updater-rollback.cmd` restores the previous runtime after an update.
+
+Setup checks the existing runtime and portable settings. It does not move application data, overwrite existing updater files or start an update. See [setup and configuration](docs/running.md#set-up-a-container) for the review steps, custom layouts and building from source.
+
+## See the workflow
+
+![DuckStation and KoboldCpp update, repeat check and rollback](docs/images/workflow-demo.gif)
+
+Recorded terminal output from disposable DuckStation and KoboldCpp containers using cached official packages. Protected file hashes were checked after each operation, and the original runtime was restored. Pauses are shortened; this demonstrates updater behavior, not game save compatibility or model inference.
 
 ## Included adapters
 
-| Emulator | Adapter | Container example |
+| Application | Adapter | Container example |
 | --- | --- | --- |
 | DuckStation | [duckstation-windows.json](adapters/duckstation-windows.json) | [duckstation.json](examples/duckstation.json) |
+| KoboldCpp (CUDA) | [koboldcpp-windows.json](adapters/koboldcpp-windows.json) | [koboldcpp.json](examples/koboldcpp.json) |
 | PCSX2 | [pcsx2-windows.json](adapters/pcsx2-windows.json) | [pcsx2.json](examples/pcsx2.json) |
 | RPCS3 | [rpcs3-windows.json](adapters/rpcs3-windows.json) | [rpcs3.json](examples/rpcs3.json) |
 | Cemu | [cemu-windows.json](adapters/cemu-windows.json) | [cemu.json](examples/cemu.json) |
@@ -18,41 +35,6 @@ Double-click `updater-update.cmd` to update or `updater-rollback.cmd` to restore
 | DOSBox Pure Unleashed | [dosbox-pure-windows.json](adapters/dosbox-pure-windows.json) | [dosbox-pure.json](examples/dosbox-pure.json) |
 
 The shadPS4 adapter updates the emulator core in the configured version directory. Its launcher GUI is separate.
-
-## Set up a container
-
-Start with an existing portable emulator installation in its own runtime directory. Enable its portable mode and configure its data paths before adding the updater.
-
-1. Build the updater with Go 1.25 or later on Windows:
-
-   ```cmd
-   build.cmd
-   ```
-
-2. Copy `portable-update.exe` into the game's `util/portable-update` directory. Copy the selected adapter into its `adapters` subdirectory and the JSON schemas into its `schemas` subdirectory.
-3. Copy the matching container example above to `util/portable-update/update.json`. Adjust `name`, `runtime`, `channel` and `saves` for that container. Paths in the examples describe sample layouts; they do not relocate existing data.
-4. Copy both command files from [scripts/launchers](scripts/launchers) into the game root.
-
-```text
-Game/
-  updater-update.cmd
-  updater-rollback.cmd
-  emulator/                    active runtime; name/path comes from update.json
-  data/                        game data; paths depend on emulator configuration
-  util/
-    portable-update/
-      portable-update.exe
-      update.json
-      adapters/
-      schemas/
-      state/                   installation receipt and recovery journal
-  tmp/
-    portable-update/           downloads, staging, snapshots, retained runtimes, logs
-```
-
-The **adapter** defines the release source, package selection, version policy, protected settings and required files for an emulator. The **container configuration** selects that adapter and supplies the runtime directory, release channel and save paths. `runtime` and `saves` are relative to the game root; `adapter` is relative to `util/portable-update`. Protected and required paths inside an adapter are relative to the runtime. The [schemas](schemas) describe the accepted fields.
-
-For another emulator using an existing provider and version policy, add an adapter JSON file and a container configuration. A new release service or version policy requires a code change; JSON adapters do not execute shell commands or installers.
 
 ## Example game containers
 
@@ -67,31 +49,20 @@ For another emulator using an existing provider and version policy, add an adapt
   </tr>
 </table>
 
-Both containers keep saves and user data in `data`, updater files in `util/portable-update`, and downloads, snapshots and rollback copies in `tmp/portable-update`. The two updater commands stay in the game root. Explorer hides file extensions in these screenshots. The PCSX2 container also includes a Linux runtime; the updater currently supports Windows only.
+These PCSX2 and RPCS3 containers use separate runtime, data and utility directories. See the [operating guide](docs/running.md#storage-and-cleanup) for updater storage and cleanup. Explorer hides file extensions in these screenshots. The PCSX2 folder also includes a Linux runtime; the updater supports Windows only.
 
-## Update and restore
+## Limits
 
-Close the game and emulator, then double-click `updater-update.cmd`. Current installations are kept when the selected version or installation receipt matches. Otherwise the updater downloads and validates a package, prepares a candidate, snapshots configured saves and copies protected settings before replacing the runtime.
+- Windows x64 only; target applications retain their own OS, hardware and driver requirements.
+- Close the application before updating. Verify it works with its data after changing versions; package validation does not establish compatibility.
+- Rollback needs its retained previous runtime. External user data keeps its current state.
+- Updater self-updates, automatic retention cleanup and a whole-collection update command are not implemented.
 
-Downloads resume retained ranges after an interruption. Version checks use Windows executable versions or release/hash receipts, depending on the adapter; the first check for a receipt-based installation may download a package for comparison.
+## Documentation
 
-`updater-rollback.cmd` restores the previous runtime and its settings from the update moment. External saves retain their current progress. Check save/load compatibility after changing emulator versions.
-
-Successful command files close automatically. Errors keep the console open. Details are in `tmp/portable-update/update.log`.
-
-## Integrity and storage
-
-Adapters normally require an upstream SHA-256. The explicit `when-published` policy permits packages without a published hash, using HTTPS delivery, archive integrity checks and executable validation. A locally recorded hash checks subsequent cache reads; it is not a publisher checksum.
-
-Updater files and recovery metadata stay under `util/portable-update`. Working files and retained runtime copies stay under `tmp/portable-update`. Removing that temporary directory discards cached downloads, save snapshots and rollback copies; active saves remain in their configured game data paths. Keep the workspace while an update is running.
-
-Save snapshots above 2 GiB stop installation. Snapshot paths should identify save/configuration data, rather than entire game libraries. Protected runtime-local files are also retained with the previous runtime.
-
-Interrupted swaps with recognizable directory states are recovered on the next run. Recovery does not guarantee protection from disk corruption or power failure. Updater self-updates, automatic backup cleanup and a whole-collection update command are not implemented.
-
-## Development
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for build/check commands and [architecture](docs/architecture.md) for package responsibilities.
+- [Running](docs/running.md) - setup, configuration, ordinary use, storage and troubleshooting.
+- [Architecture](docs/architecture.md) - components, update flow, state ownership and recovery.
+- [Conventions](docs/conventions.md) - development, extension rules and verification.
 
 ## License
 

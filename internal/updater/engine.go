@@ -23,7 +23,7 @@ type Engine struct {
 func New(c *config.Config) (*Engine, error) {
 	root, home, instance, adapter := c.Root, c.Home, c.Instance, c.Adapter
 	var e error
-	u := &transaction{root: root, home: home, work: c.Work, policy: installPolicy{Name: instance.Name, Runtime: instance.Runtime, Executable: adapter.Executable, Preserve: adapter.Preserve, Saves: instance.Saves}}
+	u := &transaction{root: root, home: home, work: c.Work, policy: installPolicy{Name: instance.Name, Runtime: instance.Runtime, Executable: adapter.Executable, Preserve: adapter.Preserve, Saves: instance.Saves, RequiredState: adapter.RequiredState, RequiredPackage: adapter.RequiredPackage}}
 	if b, e := os.ReadFile(u.journalPath()); e == nil {
 		if e = json.Unmarshal(b, &u.state); e != nil {
 			return nil, e

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -25,12 +26,14 @@ type Instance struct {
 	Saves      []string `json:"saves"`
 }
 type Adapter struct {
-	JSONSchema   string `json:"$schema,omitempty"`
-	Schema       int    `json:"schema"`
-	ID           string `json:"id"`
-	Platform     string `json:"platform"`
-	Architecture string `json:"architecture"`
-	Executable   string `json:"executable"`
+	JSONSchema   string  `json:"$schema,omitempty"`
+	Schema       int     `json:"schema"`
+	ID           string  `json:"id"`
+	Platform     string  `json:"platform"`
+	Architecture string  `json:"architecture"`
+	Executable   string  `json:"executable"`
+	Package      string  `json:"package,omitempty"`
+	Unpack       *Unpack `json:"unpack,omitempty"`
 	Version      struct {
 		Kind string `json:"kind"`
 	} `json:"version"`
@@ -38,6 +41,10 @@ type Adapter struct {
 	Preserve        []string       `json:"preserve"`
 	RequiredPackage []string       `json:"required_package"`
 	RequiredState   []string       `json:"required_state"`
+}
+
+type Unpack struct {
+	Arguments []string `json:"arguments"`
 }
 
 type Config struct {
@@ -56,8 +63,9 @@ func decodeFile(path string, target any) error {
 	if e = d.Decode(target); e != nil {
 		return fmt.Errorf("%s: %w", filepath.Base(path), e)
 	}
-	if d.More() {
-		return errors.New("extra JSON data")
+	var trailing any
+	if e = d.Decode(&trailing); e != io.EOF {
+		return errors.New("extra or invalid trailing JSON data")
 	}
 	return nil
 }
@@ -105,6 +113,35 @@ func Load(path string) (*Config, error) {
 	if adapter.Version.Kind != "windows-file-version" && adapter.Version.Kind != "artifact-sha256" {
 		return nil, errors.New("unsupported version detector")
 	}
+	if adapter.Package != "" && adapter.Package != "archive" && adapter.Package != "executable-unpack" {
+		return nil, errors.New("unsupported package format")
+	}
+	if adapter.Package == "executable-unpack" {
+		if adapter.Source.Checksum == "when-published" {
+			return nil, errors.New("executable unpack requires a publisher checksum")
+		}
+		if adapter.Unpack == nil || len(adapter.Unpack.Arguments) == 0 || len(adapter.Unpack.Arguments) > 32 {
+			return nil, errors.New("executable unpack requires an argument list")
+		}
+		destinations := 0
+		for _, arg := range adapter.Unpack.Arguments {
+			destinations += strings.Count(arg, "{destination}")
+			if len(arg) > 2048 || strings.ContainsAny(strings.ReplaceAll(arg, "{destination}", ""), "\x00{}") {
+				return nil, errors.New("invalid executable unpack argument")
+			}
+		}
+		if destinations != 1 {
+			return nil, errors.New("unpack arguments must contain exactly one {destination} placeholder")
+		}
+	} else if adapter.Unpack != nil {
+		return nil, errors.New("unpack arguments require the executable-unpack package format")
+	}
+	if e = release.ValidateSource(adapter.Source); e != nil {
+		return nil, e
+	}
+	if adapter.Source.Feed != nil && adapter.Source.Feed.Channels[instance.Channel] == "" {
+		return nil, errors.New("adapter does not define the configured channel")
+	}
 	if !release.Supports(adapter.Source.Provider) {
 		return nil, errors.New("unsupported release provider")
 	}
@@ -142,6 +179,9 @@ func Load(path string) (*Config, error) {
 	}
 	// Overlapping preservation roots make replacement ambiguous; reject them.
 	for i, a := range adapter.Preserve {
+		if files.Within(strings.ToLower(filepath.Clean(filepath.FromSlash(a))), strings.ToLower(filepath.Clean(filepath.FromSlash(adapter.Executable)))) {
+			return nil, errors.New("preservation path contains the runtime entry point")
+		}
 		for j, b := range adapter.Preserve {
 			if i != j && files.Within(strings.ToLower(filepath.Clean(a)), strings.ToLower(filepath.Clean(b))) {
 				return nil, errors.New("overlapping preservation paths")

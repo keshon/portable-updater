@@ -1,0 +1,32 @@
+{
+  "$schema": "../schemas/adapter.schema.json",
+  "schema": 1,
+  "id": "koboldcpp-windows-x64",
+  "platform": "windows",
+  "architecture": "amd64",
+  "executable": "koboldcpp-launcher.exe",
+  "package": "executable-unpack",
+  "version": {
+    "kind": "artifact-sha256"
+  },
+  "source": {
+    "provider": "github",
+    "repository": "LostRuins/koboldcpp",
+    "asset_pattern": "^koboldcpp\\.exe$"
+  },
+  "preserve": [],
+  "required_package": [
+    "koboldcpp-launcher.exe",
+    "koboldcpp.py",
+    "python38.dll",
+    "koboldcpp_cublas.dll",
+    "embd_res"
+  ],
+  "required_state": [],
+  "unpack": {
+    "arguments": [
+      "--unpack",
+      "{destination}"
+    ]
+  }
+}

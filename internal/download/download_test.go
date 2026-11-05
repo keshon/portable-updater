@@ -42,6 +42,34 @@ func TestParallelRangesAssembledInOrder(t *testing.T) {
 	}
 }
 
+func TestOversizedRangeDoesNotPoisonResume(t *testing.T) {
+	data := []byte("valid package")
+	var oversized atomic.Bool
+	oversized.Store(true)
+	server := testNetwork(t, func(w http.ResponseWriter, r *http.Request) {
+		if oversized.Load() {
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes 0-%d/%d", len(data)-1, len(data)))
+			w.WriteHeader(http.StatusPartialContent)
+			w.(http.Flusher).Flush()
+			w.Write(append(append([]byte{}, data...), byte('!')))
+			return
+		}
+		serveRange(w, r, data)
+	})
+	p := filepath.Join(t.TempDir(), "package.zip")
+	asset := testAsset(data, server.URL)
+	if err := Fetch(context.Background(), asset, p, io.Discard); err == nil {
+		t.Fatal("oversized body accepted")
+	}
+	oversized.Store(false)
+	if err := Fetch(context.Background(), asset, p, io.Discard); err != nil {
+		t.Fatal("oversized response poisoned a later retry:", err)
+	}
+	if read(t, p) != string(data) {
+		t.Fatal("retried package differs")
+	}
+}
+
 func TestPartialRangeContinuesFromReceivedBytes(t *testing.T) {
 	data := []byte("01234567")
 	first := true

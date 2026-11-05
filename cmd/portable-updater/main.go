@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"flag"
 	"fmt"
 	"os"
 
@@ -9,8 +11,11 @@ import (
 
 func main() {
 	if err := app.Run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
-		fmt.Fprintln(os.Stderr, "Could not complete the update:", err)
-		fmt.Fprintln(os.Stderr, "Details: tmp/portable-update/update.log")
+		if errors.Is(err, flag.ErrHelp) {
+			return
+		}
+		fmt.Fprintln(os.Stderr, "Could not complete the operation:", err)
+		fmt.Fprintln(os.Stderr, "For update failures, see tmp/portable-update/update.log in the container.")
 		os.Exit(1)
 	}
 }

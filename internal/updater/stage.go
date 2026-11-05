@@ -13,6 +13,10 @@ import (
 )
 
 func (u *transaction) stage(source string) error {
+	return u.stageCandidate(source, true)
+}
+
+func (u *transaction) stageCandidate(source string, persist bool) error {
 	if u.state.Phase == "staged" || u.state.Phase == "swapping" || u.state.Phase == "old_moved" || u.state.Phase == "rolling_back" {
 		return errors.New("pending transaction; apply or recover it first")
 	}
@@ -86,7 +90,13 @@ func (u *transaction) stage(source string) error {
 				return e
 			}
 			if !d.IsDir() && strings.EqualFold(d.Name(), filepath.Base(u.policy.Executable)) {
-				matches = append(matches, filepath.Dir(p))
+				root := p
+				for range strings.Split(filepath.ToSlash(u.policy.Executable), "/") {
+					root = filepath.Dir(root)
+				}
+				if files.Within(unpack, root) && strings.EqualFold(filepath.Join(root, filepath.FromSlash(u.policy.Executable)), p) {
+					matches = append(matches, root)
+				}
 			}
 			return nil
 		})
@@ -113,8 +123,10 @@ func (u *transaction) stage(source string) error {
 		}
 	}
 	u.state = journal{Phase: "staged", Stage: rel, Source: src, Created: id}
-	if e = u.save(); e != nil {
-		return e
+	if persist {
+		if e = u.save(); e != nil {
+			return e
+		}
 	}
 	fmt.Fprintln(u.output(), "Staged clean package:", dest)
 	fmt.Fprintln(u.output(), "Settings will be copied from the installed runtime immediately before apply. Do not launch this clean stage.")

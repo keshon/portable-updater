@@ -29,13 +29,29 @@ type processEntry struct {
 
 func GuardProcesses(roots ...string) error {
 	names := map[string]bool{}
+	canonicalRoots := make([]string, 0, len(roots))
 	for _, root := range roots {
-		_ = filepath.WalkDir(root, func(p string, d os.DirEntry, e error) error {
-			if e == nil && !d.IsDir() && strings.EqualFold(filepath.Ext(p), ".exe") {
+		resolved, err := files.Canonical(root)
+		if err != nil {
+			return err
+		}
+		canonicalRoots = append(canonicalRoots, resolved)
+		if _, err = os.Stat(resolved); os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		if err = filepath.WalkDir(resolved, func(p string, d os.DirEntry, e error) error {
+			if e != nil {
+				return e
+			}
+			if !d.IsDir() && strings.EqualFold(filepath.Ext(p), ".exe") {
 				names[strings.ToLower(d.Name())] = true
 			}
 			return nil
-		})
+		}); err != nil {
+			return fmt.Errorf("cannot inspect runtime processes: %w", err)
+		}
 	}
 	h, _, e := createSnapshot.Call(2, 0)
 	if h == ^uintptr(0) {
@@ -60,10 +76,13 @@ func GuardProcesses(roots ...string) error {
 				return fmt.Errorf("cannot inspect process %d: %v", entry.PID, err)
 			}
 			path := syscall.UTF16ToString(buf[:n])
-			for _, root := range roots {
-				r, _ := filepath.Abs(root)
-				if files.Within(strings.ToLower(r), strings.ToLower(path)) {
-					return fmt.Errorf("close emulator before updating: %s (PID %d)", path, entry.PID)
+			path, err = files.Canonical(path)
+			if err != nil {
+				return fmt.Errorf("cannot resolve active process path: %w", err)
+			}
+			for _, root := range canonicalRoots {
+				if files.Within(strings.ToLower(root), strings.ToLower(path)) {
+					return fmt.Errorf("close application before updating: %s (PID %d)", path, entry.PID)
 				}
 			}
 		}

@@ -41,6 +41,30 @@ func TestFailedSwapRestoresCurrentRuntime(t *testing.T) {
 	}
 }
 
+func TestPreservationCannotRemoveRequiredCandidateFiles(t *testing.T) {
+	for _, kind := range []string{"portable-state", "package-file"} {
+		t.Run(kind, func(t *testing.T) {
+			u, source := fixture(t)
+			u.policy.Preserve = []string{"config"}
+			if kind == "portable-state" {
+				u.policy.RequiredState = []string{"portable.ini"}
+			} else {
+				put(t, filepath.Join(source, "config/mandatory.json"), "new mandatory file")
+				u.policy.RequiredPackage = []string{"config/mandatory.json"}
+			}
+			if err := u.stage(source); err != nil {
+				t.Fatal(err)
+			}
+			if err := u.apply(false); err == nil || !strings.Contains(err.Error(), "required file after settings preservation") {
+				t.Fatal("missing post-preservation state accepted:", err)
+			}
+			if read(t, filepath.Join(u.runtime(), "emu.exe")) != "old" {
+				t.Fatal("invalid candidate replaced active runtime")
+			}
+		})
+	}
+}
+
 func put(t *testing.T, p, s string) {
 	t.Helper()
 	if e := os.MkdirAll(filepath.Dir(p), 0755); e != nil {
@@ -132,6 +156,42 @@ func TestWrappedZipAndSourceOverlap(t *testing.T) {
 	}
 }
 
+func TestArchiveKeepsDeclaredNestedEntryPoint(t *testing.T) {
+	u, _ := fixture(t)
+	u.policy.Executable = "bin/emu.exe"
+	put(t, filepath.Join(u.runtime(), "bin/emu.exe"), "old nested executable")
+	p := filepath.Join(t.TempDir(), "release.zip")
+	f, err := os.Create(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	z := zip.NewWriter(f)
+	for name, content := range map[string]string{"wrapper/bin/emu.exe": "nested executable", "wrapper/resources/data": "resource", "unrelated/emu.exe": "wrong location"} {
+		w, err := z.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = w.Write([]byte(content)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = z.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = u.stage(p); err != nil {
+		t.Fatal(err)
+	}
+	if read(t, filepath.Join(u.root, u.state.Stage, "bin/emu.exe")) != "nested executable" {
+		t.Fatal("nested entry point flattened")
+	}
+	if read(t, filepath.Join(u.root, u.state.Stage, "resources/data")) != "resource" {
+		t.Fatal("runtime root incorrectly selected")
+	}
+}
+
 func TestRecoverInterruptedApply(t *testing.T) {
 	u, src := fixture(t)
 	if e := u.stage(src); e != nil {
@@ -150,6 +210,71 @@ func TestRecoverInterruptedApply(t *testing.T) {
 	}
 	if u.state.Phase != "staged" || read(t, filepath.Join(u.runtime(), "emu.exe")) != "old" {
 		t.Fatal("recovery failed")
+	}
+}
+
+func TestRecoveryLayouts(t *testing.T) {
+	cases := []struct {
+		name, phase             string
+		active, stage, previous bool
+		wantPhase, wantActive   string
+		wantError               bool
+	}{
+		{"apply-old-moved", "old_moved", false, true, true, "staged", "previous", false},
+		{"apply-completed", "old_moved", true, false, true, "applied", "current", false},
+		{"apply-not-started", "swapping", true, true, false, "staged", "current", false},
+		{"rollback-current-moved", "rolling_back", false, true, true, "applied", "displaced", false},
+		{"rollback-completed", "rolling_back", true, true, false, "rolled_back", "current", false},
+		{"rollback-not-started", "rolling_back", true, false, true, "applied", "current", false},
+		{"ambiguous-apply", "swapping", true, true, true, "", "", true},
+		{"ambiguous-rollback", "rolling_back", true, true, true, "", "", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			u, _ := fixture(t)
+			if err := os.Rename(u.runtime(), filepath.Join(u.root, "unused-runtime")); err != nil {
+				t.Fatal(err)
+			}
+			kind := "next"
+			if tc.phase == "rolling_back" {
+				kind = "rejected"
+			}
+			u.state = journal{Phase: tc.phase, Stage: u.runtimeCopy(kind, "matrix"), Previous: u.runtimeCopy("previous", "matrix")}
+			if tc.active {
+				put(t, filepath.Join(u.runtime(), "emu.exe"), "current")
+			}
+			if tc.stage {
+				value := "candidate"
+				if kind == "rejected" {
+					value = "displaced"
+				}
+				put(t, filepath.Join(u.root, u.state.Stage, "emu.exe"), value)
+			}
+			if tc.previous {
+				put(t, filepath.Join(u.root, u.state.Previous, "emu.exe"), "previous")
+			}
+			if err := u.save(); err != nil {
+				t.Fatal(err)
+			}
+			err := u.recover()
+			if tc.wantError {
+				if err == nil {
+					t.Fatal("ambiguous layout accepted")
+				}
+				for _, path := range []string{u.runtime(), filepath.Join(u.root, u.state.Stage), filepath.Join(u.root, u.state.Previous)} {
+					if !files.Exists(filepath.Join(path, "emu.exe")) {
+						t.Fatal("ambiguous recovery moved or removed a copy")
+					}
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if u.state.Phase != tc.wantPhase || read(t, filepath.Join(u.runtime(), "emu.exe")) != tc.wantActive {
+				t.Fatalf("unexpected recovery: %+v", u.state)
+			}
+		})
 	}
 }
 
@@ -176,7 +301,7 @@ func TestRunningRuntimeRefused(t *testing.T) {
 	}
 	defer func() { command.Process.Kill(); command.Wait() }()
 	time.Sleep(200 * time.Millisecond)
-	if e = u.stage(src); e == nil || !strings.Contains(e.Error(), "close emulator") {
+	if e = u.stage(src); e == nil || !strings.Contains(e.Error(), "close application") {
 		t.Fatalf("running runtime accepted or incorrect failure: %v", e)
 	}
 }

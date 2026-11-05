@@ -2,9 +2,11 @@ package release
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -31,7 +33,7 @@ func TestRPCS3OfficialFeed(t *testing.T) {
 		}
 		return jsonResponse(fmt.Sprintf(`{"return_code":0,"latest_build":{"version":"0.0.43-20410","windows":{"download":"https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-abc/rpcs3.7z","size":100,"checksum":%q}}}`, checksum)), nil
 	})
-	got, err := (RPCS3Provider{}).Latest(context.Background(), Source{}, "latest")
+	got, err := (JSONFeedProvider{}).Latest(context.Background(), adapterSource(t, "rpcs3"), "latest")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +45,7 @@ func TestRPCS3RejectsMissingChecksum(t *testing.T) {
 	mockHTTP(t, func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(`{"return_code":0,"latest_build":{"version":"v1","windows":{"download":"https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-abc/rpcs3.7z","size":100}}}`), nil
 	})
-	if _, err := (RPCS3Provider{}).Latest(context.Background(), Source{}, "latest"); err == nil {
+	if _, err := (JSONFeedProvider{}).Latest(context.Background(), adapterSource(t, "rpcs3"), "latest"); err == nil {
 		t.Fatal("missing checksum accepted")
 	}
 }
@@ -70,7 +72,7 @@ func TestDolphinFeedAndPackageSize(t *testing.T) {
 				}
 				return jsonResponse(`{"shortrev":"2609a","hash":"commit","artifacts":[{"system":"Linux","url":"https://example.invalid/linux"},{"system":"Windows x64","url":"https://dl.dolphin-emu.org/releases/2609a/dolphin-2609a-x64.7z"}]}`), nil
 			})
-			got, err := (DolphinProvider{}).Latest(context.Background(), Source{}, channel)
+			got, err := (JSONFeedProvider{}).Latest(context.Background(), adapterSource(t, "dolphin"), channel)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -99,4 +101,19 @@ func TestForgejoOfficialAssetWithoutPublishedDigest(t *testing.T) {
 	if _, err := (ForgejoProvider{}).Latest(context.Background(), source, "latest"); err == nil {
 		t.Fatal("required checksum silently bypassed")
 	}
+}
+
+func adapterSource(t *testing.T, name string) Source {
+	t.Helper()
+	data, err := os.ReadFile("../../adapters/" + name + "-windows.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var adapter struct {
+		Source Source `json:"source"`
+	}
+	if err = json.Unmarshal(data, &adapter); err != nil {
+		t.Fatal(err)
+	}
+	return adapter.Source
 }

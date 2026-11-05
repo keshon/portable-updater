@@ -7,11 +7,13 @@ import (
 )
 
 type installPolicy struct {
-	Name       string
-	Runtime    string
-	Executable string
-	Preserve   []string
-	Saves      []string
+	Name            string
+	Runtime         string
+	Executable      string
+	Preserve        []string
+	Saves           []string
+	RequiredState   []string
+	RequiredPackage []string
 }
 
 type transaction struct {

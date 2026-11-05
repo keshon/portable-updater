@@ -17,11 +17,12 @@ import (
 )
 
 type Source struct {
-	Provider     string `json:"provider"`
-	Repository   string `json:"repository"`
-	AssetPattern string `json:"asset_pattern"`
-	Host         string `json:"host,omitempty"`
-	Checksum     string `json:"checksum,omitempty"`
+	Provider     string    `json:"provider"`
+	Repository   string    `json:"repository"`
+	AssetPattern string    `json:"asset_pattern"`
+	Host         string    `json:"host,omitempty"`
+	Checksum     string    `json:"checksum,omitempty"`
+	Feed         *JSONFeed `json:"feed,omitempty"`
 }
 type Asset struct {
 	Name      string `json:"name"`
@@ -47,7 +48,7 @@ type ReleaseProvider interface {
 }
 type GitHubProvider struct{}
 
-var providers = map[string]ReleaseProvider{"github": GitHubProvider{}, "forgejo": ForgejoProvider{}, "rpcs3": RPCS3Provider{}, "dolphin": DolphinProvider{}}
+var providers = map[string]ReleaseProvider{"github": GitHubProvider{}, "forgejo": ForgejoProvider{}, "json-feed": JSONFeedProvider{}}
 
 func metadata(ctx context.Context, url string, target any) error {
 	req, e := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -64,7 +65,9 @@ func metadata(ctx context.Context, url string, target any) error {
 	if response.StatusCode != 200 {
 		return fmt.Errorf("release lookup returned HTTP %d", response.StatusCode)
 	}
-	return json.NewDecoder(io.LimitReader(response.Body, 8<<20)).Decode(target)
+	decoder := json.NewDecoder(io.LimitReader(response.Body, 8<<20))
+	decoder.UseNumber()
+	return decoder.Decode(target)
 }
 func (GitHubProvider) Latest(ctx context.Context, source Source, channel string) (Selection, error) {
 	var releases []Release

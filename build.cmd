@@ -1,5 +1,6 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
+set "CGO_ENABLED=0"
 pushd "%~dp0" || exit /b 1
 if /i "%~1"=="test" goto :test
 if /i "%~1"=="check" goto :check
