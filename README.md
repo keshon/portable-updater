@@ -14,11 +14,18 @@ Portable Updater is a Windows x64 tool written in Go for portable applications, 
 
 Setup checks the existing runtime and portable settings. It does not move application data, overwrite existing updater files or start an update. See [setup and configuration](docs/running.md#set-up-a-container) for the review steps, custom layouts and building from source.
 
-## See the workflow
+## Console output
 
-![DuckStation and KoboldCpp update, repeat check and rollback](docs/images/workflow-demo.gif)
+The application uses an ordinary console. This is captured output from a disposable DuckStation check:
 
-Recorded terminal output from disposable DuckStation and KoboldCpp containers using cached official packages. Protected file hashes were checked after each operation, and the original runtime was restored. Pauses are shortened; this demonstrates updater behavior, not game save compatibility or model inference.
+```text
+Portable Updater v0.1.0
+Disposable DuckStation updater validation
+Checking for updates...
+Already current (latest).
+```
+
+Update and rollback are run through the container's command files. A console wizard handles first-time setup when `update.json` is absent.
 
 ## Included adapters
 

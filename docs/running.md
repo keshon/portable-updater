@@ -17,9 +17,11 @@ The target application still has its own OS, hardware and driver requirements. C
 
 Download and extract a Windows x64 release ZIP into a temporary folder, then double-click `portable-update.exe`. The executable bundles its profiles, schemas, launcher templates and license notices.
 
-The console wizard asks for the existing container folder, application profile, runtime directory and snapshot paths. It detects profiles at their example runtime paths; choose the profile and enter the relative runtime path for a custom layout. Snapshot defaults include only example paths that already exist. Review them against the application's actual user-data configuration; use comma-separated relative paths or `-` for no snapshots.
+The console wizard asks for the existing container folder, application profile, runtime directory and snapshot paths. Choose the outer folder: for `F:\Projects\ai\koboldcpp\extracted`, the container is `F:\Projects\ai\koboldcpp` and the runtime is `extracted`. Runtime input accepts a relative folder or a full path inside the container. Selecting a recognized default runtime at the first prompt uses its parent container and explains the correction. An already configured container is identified without reinstalling it. It detects profiles at their example runtime paths; choose the profile and enter the relative runtime path for a custom layout. Snapshot defaults include only example paths that already exist. Review them against the application's actual user-data configuration; use comma-separated relative paths or `-` for no snapshots.
 
-Before confirmation, setup checks the runtime entry point and required package/portable files and shows what it will install. It creates `util/portable-update` and both root command launchers, leaving the application and existing launch scripts in place. It does not run an update. Setup refuses to overwrite an existing updater home or either updater command file.
+Before confirmation, setup checks the runtime entry point and required package/portable files and shows what it will install. It creates `util/portable-update` and both root command launchers, leaving the application and existing launch scripts in place. It does not run an update. Setup can run with only `portable-update.exe` already in `util/portable-update`. It creates missing files and reuses byte-identical bundled files and command launchers. It never overwrites a different existing file or an existing configuration. A configuration-free folder with old updater state is reported as a conflict, rather than inheriting that transaction state into a fresh setup.
+
+If the default `update.json` beside the executable is missing, launching it with no arguments opens setup, including under `util/portable-update`. An explicit missing `--manifest` or `--rollback` reports an error instead. An existing invalid configuration also reports an error rather than starting over.
 
 An installed updater normally runs updates directly. Use `portable-update.exe --setup` explicitly to open the wizard for another container. `--version` prints its build version.
 
@@ -141,7 +143,7 @@ Archive packages use ZIP/7z extraction. The `executable-unpack` format requires 
 
 | Symptom | Check and next step |
 | --- | --- |
-| Setup reports an existing updater after an interrupted setup | Inspect `util/portable-update` and the two root updater command files. Setup never overwrites them. Preserve any existing configuration; complete a manual installation or remove only files confirmed to come from the incomplete setup before retrying. |
+| Setup reports an existing updater after an interrupted setup | Inspect `util/portable-update` and the two root updater command files. Setup reuses matching files and creates missing ones. Different existing files are reported as conflicts. Preserve any existing configuration and inspect the named conflict before retrying. |
 | An active process blocks replacement | Close the application, including background instances, then rerun the updater. It does not terminate them for you. |
 | A required portable setting is missing | Check `required_state` in the selected adapter and confirm that portable mode was configured in the active runtime. Restore or configure the actual setting before retrying. |
 | Download fails or is interrupted | Read the log and check network access. Rerun to reuse retained ranges; incomplete downloads do not replace the runtime. |

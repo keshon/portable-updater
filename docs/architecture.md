@@ -1,6 +1,6 @@
 # Architecture
 
-`cmd/portable-updater` passes arguments and output streams to `internal/app`. Outside an installed updater home, an executable without configuration opens first-time setup. The application layer otherwise loads configuration, owns the updater lock and log, and dispatches `Engine.Update` or `Engine.Restore`.
+`cmd/portable-updater` passes arguments and output streams to `internal/app`. An executable without its default configuration opens first-time setup. Explicit manifest and rollback requests report missing configuration instead. The application layer otherwise loads configuration, owns the updater lock and log, and dispatches `Engine.Update` or `Engine.Restore`.
 
 ## Components
 
@@ -65,6 +65,6 @@ Tests live beside their owning packages and use fixtures and private fault-injec
 
 ## Distribution and setup
 
-The root `bundle.go` embeds the canonical adapters, examples, schemas, launcher templates and license notices. Profiles are derived from those files rather than a second application catalog. Setup reads an existing installation and prepares a review before writing. Installation creates files exclusively; on a returned error it removes only the files and empty directories created by that invocation. Process termination during setup may leave a partial installation, which is refused on a later setup attempt rather than overwritten.
+The root `bundle.go` embeds the canonical adapters, examples, schemas, launcher templates and license notices. Profiles are derived from those files rather than a second application catalog. Setup reads an existing installation and prepares a review before writing. Installation creates missing files exclusively and reuses byte-identical existing assets, including the running executable in its final directory. A different existing file is a conflict. On a returned error it removes only the files and empty directories created by that invocation; reused files are retained. Process termination may leave partial setup files. Matching files can be reused on retry, but an existing configuration or orphaned transaction state requires attention rather than being overwritten.
 
 The release packager creates a Windows ZIP containing the executable, notices and a short start guide, plus a separate SHA-256 file. A tagged release workflow runs checks before publishing; manually dispatched builds upload an artifact without creating a public release.

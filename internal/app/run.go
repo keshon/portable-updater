@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/keshon/portable-updater/internal/config"
@@ -24,13 +23,17 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	if e != nil {
 		return e
 	}
+	return run(args, stdout, stderr, executable, os.Stdin)
+}
+
+func run(args []string, stdout, stderr io.Writer, executable string, input io.Reader) error {
 	flags := flag.NewFlagSet("portable-update", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	manifest := flags.String("manifest", filepath.Join(filepath.Dir(executable), "update.json"), "container configuration")
 	rollback := flags.Bool("rollback", false, "restore previous runtime")
 	setupRequested := flags.Bool("setup", false, "configure an existing portable application")
 	versionRequested := flags.Bool("version", false, "print updater version")
-	if e = flags.Parse(args); e != nil {
+	if e := flags.Parse(args); e != nil {
 		return e
 	}
 	if flags.NArg() != 0 {
@@ -47,10 +50,8 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		}
 	})
 	_, manifestError := os.Stat(*manifest)
-	home := filepath.Dir(executable)
-	standalone := !(strings.EqualFold(filepath.Base(home), "portable-update") && strings.EqualFold(filepath.Base(filepath.Dir(home)), "util"))
-	if *setupRequested || (!*rollback && !manifestProvided && standalone && errors.Is(manifestError, os.ErrNotExist)) {
-		return setup.Wizard(os.Stdin, stdout, executable)
+	if *setupRequested || (!*rollback && !manifestProvided && errors.Is(manifestError, os.ErrNotExist)) {
+		return setup.Wizard(input, stdout, executable)
 	}
 	configuration, e := config.Load(*manifest)
 	if e != nil {
@@ -84,6 +85,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	}
 	if e != nil {
 		fmt.Fprintln(log, "ERROR:", e)
+		return fmt.Errorf("%w (log: %s)", e, filepath.Join(configuration.Work, "update.log"))
 	}
 	return e
 }

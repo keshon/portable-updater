@@ -193,3 +193,145 @@ func TestWizardCancelAndCustomData(t *testing.T) {
 		})
 	}
 }
+
+func TestWizardRecognizesRuntimeFolder(t *testing.T) {
+	root, exe := fixture(t)
+	var output bytes.Buffer
+	input := filepath.Join(root, "duckstation") + "\nduckstation\n\n\nno\n"
+	if err := Wizard(strings.NewReader(input), &output, exe); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "Using its container: "+root) || !strings.Contains(output.String(), "Review setup") {
+		t.Fatal(output.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, "util")); !os.IsNotExist(err) {
+		t.Fatal("cancel wrote files")
+	}
+}
+
+func TestWizardAcceptsFullRuntimePathAndRetriesContainerPath(t *testing.T) {
+	root, exe := fixture(t)
+	var output bytes.Buffer
+	// A container path is a common mistake at step 3; retry without restarting.
+	input := root + "\nduckstation\n" + root + "\n" + filepath.Join(root, "duckstation") + "\n\nno\n"
+	if err := Wizard(strings.NewReader(input), &output, exe); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "That is the container itself") || !strings.Contains(output.String(), "Review setup") {
+		t.Fatal(output.String())
+	}
+}
+
+func TestWizardExplainsAlreadyConfiguredContainer(t *testing.T) {
+	root, exe := fixture(t)
+	plan, err := Prepare(root, "duckstation", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = plan.Install(exe); err != nil {
+		t.Fatal(err)
+	}
+	manifest := filepath.Join(root, "util/portable-update/update.json")
+	before, err := os.ReadFile(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if err = Wizard(strings.NewReader(filepath.Join(root, "duckstation")+"\n"), &output, exe); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "Already configured") || !strings.Contains(output.String(), "updater-update.cmd") {
+		t.Fatal(output.String())
+	}
+	after, err := os.ReadFile(manifest)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("existing configuration changed")
+	}
+}
+
+func TestSetupFromExecutableInFinalDirectory(t *testing.T) {
+	for _, mode := range []string{"install", "cancel", "failure", "different-binary"} {
+		t.Run(mode, func(t *testing.T) {
+			root, exe := fixture(t)
+			initial, err := Prepare(root, "duckstation", "", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			installedExe := filepath.Join(root, "util/portable-update/portable-update.exe")
+			binary, err := os.ReadFile(exe)
+			if err != nil {
+				t.Fatal(err)
+			}
+			put(t, installedExe, binary)
+			// Match the executable-only deployment plus existing standard launchers.
+			for _, rel := range []string{"updater-update.cmd", "updater-rollback.cmd"} {
+				put(t, filepath.Join(root, rel), initial.assets[rel])
+			}
+			plan, err := Prepare(root, "duckstation", "", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch mode {
+			case "cancel":
+				var output bytes.Buffer
+				err = Wizard(strings.NewReader(root+"\nduckstation\n\n\nno\n"), &output, installedExe)
+				if err != nil || !strings.Contains(output.String(), "Review setup") {
+					t.Fatalf("%v: %s", err, output.String())
+				}
+			case "failure":
+				original := openSetupFile
+				t.Cleanup(func() { openSetupFile = original })
+				calls := 0
+				openSetupFile = func(path string, flags int, mode os.FileMode) (*os.File, error) {
+					calls++
+					if calls == 3 {
+						return nil, errors.New("injected failure")
+					}
+					return original(path, flags, mode)
+				}
+				if err = plan.Install(installedExe); err == nil {
+					t.Fatal("injected failure ignored")
+				}
+			case "different-binary":
+				put(t, installedExe, []byte("different executable"))
+				if err = plan.Install(exe); !errors.Is(err, ErrSetupConflict) {
+					t.Fatalf("different existing binary accepted: %v", err)
+				}
+			default:
+				if err = plan.Install(installedExe); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = config.Load(filepath.Join(root, "util/portable-update/update.json")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if mode != "different-binary" {
+				b, e := os.ReadFile(installedExe)
+				if e != nil || !bytes.Equal(b, binary) {
+					t.Fatal("changed preexisting binary")
+				}
+			}
+			for _, rel := range []string{"updater-update.cmd", "updater-rollback.cmd"} {
+				b, e := os.ReadFile(filepath.Join(root, rel))
+				if e != nil || !bytes.Equal(b, initial.assets[rel]) {
+					t.Fatal("changed preexisting launcher")
+				}
+			}
+			if mode != "install" {
+				if _, err = os.Stat(filepath.Join(root, "util/portable-update/update.json")); !os.IsNotExist(err) {
+					t.Fatal("unexpected config after cancelled or failed setup")
+				}
+			}
+		})
+	}
+}
+
+func TestWizardDoesNotRetryDestinationConflictAsRuntime(t *testing.T) {
+	root, exe := fixture(t)
+	put(t, filepath.Join(root, "updater-update.cmd"), []byte("custom launcher"))
+	var output bytes.Buffer
+	err := Wizard(strings.NewReader(root+"\nduckstation\n\n"), &output, exe)
+	if !errors.Is(err, ErrSetupConflict) || strings.Contains(output.String(), "Cannot use that runtime") {
+		t.Fatalf("wrong conflict handling: %v; %s", err, output.String())
+	}
+}

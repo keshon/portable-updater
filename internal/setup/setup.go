@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"bytes"
 	"debug/pe"
 	"encoding/json"
 	"errors"
@@ -68,6 +69,9 @@ type Plan struct {
 	Instance config.Instance
 	assets   map[string][]byte
 }
+
+// ErrSetupConflict identifies installation conflicts, not runtime path mistakes.
+var ErrSetupConflict = errors.New("setup cannot reuse existing updater files")
 
 // Prepare reads the installation and constructs a reviewable plan without writing.
 // Nil saves selects existing example paths; an empty slice selects no snapshots.
@@ -198,15 +202,24 @@ func (p *Plan) checkDestinations() error {
 		return err
 	}
 	if files.Exists(home) {
-		return errors.New("util/portable-update already exists; setup will not overwrite it")
+		if err := files.ValidateTree(home); err != nil {
+			return fmt.Errorf("%w: %v", ErrSetupConflict, err)
+		}
+		if files.Exists(filepath.Join(home, "state")) {
+			return fmt.Errorf("%w: existing updater state has no configuration; move it to a backup before a fresh setup", ErrSetupConflict)
+		}
 	}
-	for _, rel := range append(p.Paths(), "util/portable-update/portable-update.exe") {
+	for _, rel := range p.Paths() {
 		path, err := files.Join(p.Root, rel)
 		if err != nil {
 			return err
 		}
-		if files.Exists(path) {
-			return fmt.Errorf("setup will not overwrite %s", rel)
+		if data, err := os.ReadFile(path); err == nil {
+			if rel == "util/portable-update/update.json" || !bytes.Equal(data, p.assets[rel]) {
+				return fmt.Errorf("%w: %s already exists with different or configured contents; setup will not overwrite it", ErrSetupConflict, rel)
+			}
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("%w: %v", ErrSetupConflict, err)
 		}
 	}
 	return nil
@@ -238,6 +251,19 @@ func (p *Plan) Install(executable string) (err error) {
 		assets[k] = v
 	}
 	assets["util/portable-update/portable-update.exe"] = data
+	// Validate the existing binary before writing anything. Setup may run from
+	// its final directory; an identical file can be retained without replacing it.
+	binaryPath, err := files.Join(p.Root, "util/portable-update/portable-update.exe")
+	if err != nil {
+		return err
+	}
+	if existing, e := os.ReadFile(binaryPath); e == nil {
+		if !bytes.Equal(existing, data) {
+			return fmt.Errorf("%w: existing portable-update.exe differs from this setup executable", ErrSetupConflict)
+		}
+	} else if !os.IsNotExist(e) {
+		return e
+	}
 	var createdFiles, createdDirs []string
 	defer func() {
 		if err == nil {
@@ -259,6 +285,14 @@ func (p *Plan) Install(executable string) (err error) {
 	for _, rel := range paths {
 		path, e := files.Join(p.Root, rel)
 		if e != nil {
+			return e
+		}
+		if existing, e := os.ReadFile(path); e == nil {
+			if rel == "util/portable-update/update.json" || !bytes.Equal(existing, assets[rel]) {
+				return fmt.Errorf("%w: %s changed during setup; nothing will be overwritten", ErrSetupConflict, rel)
+			}
+			continue
+		} else if !os.IsNotExist(e) {
 			return e
 		}
 		var missing []string

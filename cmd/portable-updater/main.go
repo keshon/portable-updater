@@ -15,7 +15,6 @@ func main() {
 			return
 		}
 		fmt.Fprintln(os.Stderr, "Could not complete the operation:", err)
-		fmt.Fprintln(os.Stderr, "For update failures, see tmp/portable-update/update.log in the container.")
 		os.Exit(1)
 	}
 }
