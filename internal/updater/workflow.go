@@ -184,7 +184,9 @@ func (p *Engine) Update(ctx context.Context, display io.Writer) (resultErr error
 		}
 	}
 	var receipt Receipt
-	if b, e := os.ReadFile(filepath.Join(p.home, "state/installed.json")); e == nil && json.Unmarshal(b, &receipt) == nil && receipt.Adapter == p.Adapter.ID && receipt.Tag == selected.Tag && sameRelease(receipt.Asset, selected.Asset) && sameCompanions(receipt.Companions, selected.Companions) && receipt.ExecutableHash == currentHash {
+	// Rollback may restore different DLLs behind an identical launcher. Its last
+	// installed receipt no longer certifies the active runtime's contents.
+	if b, e := os.ReadFile(filepath.Join(p.home, "state/installed.json")); p.state.Phase != "rolled_back" && e == nil && json.Unmarshal(b, &receipt) == nil && receipt.Adapter == p.Adapter.ID && receipt.Tag == selected.Tag && sameRelease(receipt.Asset, selected.Asset) && sameCompanions(receipt.Companions, selected.Companions) && receipt.ExecutableHash == currentHash {
 		console.New(display).Success("Already current (%s).", selected.Tag)
 		return nil
 	}

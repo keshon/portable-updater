@@ -123,6 +123,12 @@ func TestCompanionArchivesAreOneTransaction(t *testing.T) {
 			if read(t, filepath.Join(u.runtime(), "dependency.dll")) != "first dependency" {
 				t.Fatal("rollback did not restore whole package set")
 			}
+			if e = project.Update(context.Background(), io.Discard); e != nil {
+				t.Fatal(e)
+			}
+			if read(t, filepath.Join(u.runtime(), "dependency.dll")) != "second dependency" {
+				t.Fatal("receipt incorrectly skipped reinstallation after rollback with an identical launcher")
+			}
 			if read(t, filepath.Join(u.root, "data/saves/progress")) != "save" {
 				t.Fatal("external data changed")
 			}
